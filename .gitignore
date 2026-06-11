@@ -1,0 +1,45 @@
+# ─── Project documentation (local only) ───────────────────────────────────────
+project-log.yml
+
+# ─── Smart contracts (keep private) ───────────────────────────────────────────
+contracts/
+
+# ─── Environment / secrets ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+frontend/.env.local
+frontend/.env
+
+# ─── Next.js ───────────────────────────────────────────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/.turbo/
+
+# ─── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Logs / temp ───────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.temp
+.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── AI assistant files ────────────────────────────────────────────────────────
+AGENTS.md
+CLAUDE.md
+frontend/AGENTS.md
+frontend/CLAUDE.md
+frontend/README.md
