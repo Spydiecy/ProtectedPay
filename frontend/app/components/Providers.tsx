@@ -6,6 +6,7 @@ import { ThemeProvider, useTheme } from 'next-themes';
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
 import { wagmiConfig, qieTestnet } from '../lib/wagmi';
 import '@rainbow-me/rainbowkit/styles.css';
+import { useEffect, useState } from 'react';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,33 +14,40 @@ const queryClient = new QueryClient({
   },
 });
 
-// Inner component that can access useTheme
+const rkDark = darkTheme({
+  accentColor: '#2DD4BF',
+  accentColorForeground: '#042F2E',
+  borderRadius: 'large',
+  fontStack: 'system',
+  overlayBlur: 'small',
+});
+
+const rkLight = lightTheme({
+  accentColor: '#0D9488',
+  accentColorForeground: '#ffffff',
+  borderRadius: 'large',
+  fontStack: 'system',
+  overlayBlur: 'small',
+});
+
+// Defers RainbowKit theme until after hydration so server/client CSS match.
 function RainbowKitWrapper({ children }: { children: React.ReactNode }) {
   const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
-  const rkDark = darkTheme({
-    accentColor: '#2DD4BF',
-    accentColorForeground: '#042F2E',
-    borderRadius: 'large',
-    fontStack: 'system',
-    overlayBlur: 'small',
-  });
+  useEffect(() => { setMounted(true); }, []);
 
-  const rkLight = lightTheme({
-    accentColor: '#0D9488',
-    accentColorForeground: '#ffffff',
-    borderRadius: 'large',
-    fontStack: 'system',
-    overlayBlur: 'small',
-  });
+  // Before mount: always render with the default (dark) theme — same as SSR.
+  // After mount: switch to the actual resolved theme.
+  const theme = mounted && resolvedTheme === 'light' ? rkLight : rkDark;
 
   return (
     <RainbowKitProvider
-      theme={resolvedTheme === 'light' ? rkLight : rkDark}
+      theme={theme}
       initialChain={qieTestnet.id}
       appInfo={{
         appName: 'ProtectedPay',
-        learnMoreUrl: 'https://github.com/Spydiecy/ProtectedPay_Portaldot',
+        learnMoreUrl: 'https://github.com/Spydiecy/ProtectedPay_Qie',
       }}
     >
       {children}

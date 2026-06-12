@@ -375,3 +375,57 @@ input[type=number] { -moz-appearance: textfield; }
 @media (min-width: 769px) {
   .show-mobile { display: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HERO IMAGE THEME TOGGLE (no-JS, no hydration mismatch)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Default: show dark, hide light */
+.hero-dark  { display: block; }
+.hero-light { display: none;  }
+
+/* Light theme: flip */
+[data-theme="light"] .hero-dark  { display: none;  }
+[data-theme="light"] .hero-light { display: block; }
+
+/* Explicit dark theme */
+[data-theme="dark"] .hero-dark  { display: block; }
+[data-theme="dark"] .hero-light { display: none;  }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAY PAGE — dot-grid + glow background
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.pay-bg {
+  min-height: 100vh;
+  position: relative;
+  /* Dot grid as an SVG data-URI so it works without a fixed overlay */
+  background-color: var(--background);
+  background-image:
+    /* Teal glow — top center */
+    radial-gradient(ellipse 70% 45% at 50% 0%, rgba(45,212,191,0.13) 0%, transparent 65%),
+    /* Secondary cyan glow — bottom right */
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(103,232,249,0.07) 0%, transparent 60%),
+    /* Accent glow — bottom left */
+    radial-gradient(ellipse 40% 35% at 0% 85%, rgba(45,212,191,0.05) 0%, transparent 60%),
+    /* Dot grid */
+    radial-gradient(circle, var(--border) 1.2px, transparent 1.2px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    28px 28px;
+}
+
+[data-theme="light"] .pay-bg {
+  background-image:
+    radial-gradient(ellipse 70% 45% at 50% 0%, rgba(13,148,136,0.09) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(8,145,178,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 35% at 0% 85%, rgba(13,148,136,0.04) 0%, transparent 60%),
+    radial-gradient(circle, var(--border) 1.2px, transparent 1.2px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    28px 28px;
+}

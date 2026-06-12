@@ -19,22 +19,31 @@ export default function Toast({ message, type, onClose }: ToastProps) {
     }
   }, [type, onClose]);
 
-  const config = {
-    success: { icon: CheckCircle, bg: 'var(--md-surface-container-highest)', border: '#4CAF50', color: '#4CAF50' },
-    error:   { icon: XCircle,     bg: 'var(--md-error-container)',            border: 'var(--md-error)', color: 'var(--md-error)' },
-    loading: { icon: Loader2,     bg: 'var(--md-surface-container-highest)', border: 'var(--md-primary)', color: 'var(--md-primary)' },
+  const ICON_MAP = { success: CheckCircle, error: XCircle, loading: Loader2 };
+  const Icon = ICON_MAP[type];
+
+  const colors = {
+    success: { bg: 'var(--surface-card)', border: 'var(--success)',  icon: 'var(--success)'  },
+    error:   { bg: 'var(--surface-card)', border: 'var(--error)',    icon: 'var(--error)'    },
+    loading: { bg: 'var(--surface-card)', border: 'var(--primary)',  icon: 'var(--primary)'  },
   }[type];
 
-  const Icon = config.icon;
-
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-start gap-3 px-4 py-3 rounded-2xl shadow-2xl max-w-sm"
-      style={{ background: config.bg, border: `1px solid ${config.border}` }}>
-      <Icon size={18} className={type === 'loading' ? 'animate-spin mt-0.5' : 'mt-0.5'} style={{ color: config.color, flexShrink: 0 }} />
-      <p className="body-medium flex-1" style={{ color: 'var(--md-on-surface)' }}>{message}</p>
+    <div style={{
+      position: 'fixed', top: 24, right: 24, zIndex: 9000,
+      display: 'flex', alignItems: 'flex-start', gap: 12,
+      padding: '12px 16px', borderRadius: 14,
+      background: colors.bg,
+      border: `1px solid ${colors.border}`,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+      maxWidth: 340, minWidth: 240,
+      animation: 'fadeIn 0.2s ease',
+    }}>
+      <Icon size={17} style={{ color: colors.icon, flexShrink: 0, marginTop: 1, ...(type === 'loading' ? { animation: 'spin 1s linear infinite' } : {}) }} />
+      <p style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--foreground)', lineHeight: 1.5 }}>{message}</p>
       {type !== 'loading' && (
-        <button onClick={onClose} style={{ color: 'var(--md-on-surface-variant)' }}>
-          <X size={16} />
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground-subtle)', padding: 0, display: 'flex', flexShrink: 0 }}>
+          <X size={15} />
         </button>
       )}
     </div>

@@ -1,9 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  turbopack: {},
+  turbopack: {
+    root: __dirname,
+  },
   webpack: (config) => {
-    // Required for wagmi/viem in Next.js
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false, net: false, tls: false,
