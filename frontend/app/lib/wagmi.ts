@@ -15,7 +15,7 @@ import type { Chain } from 'wagmi/chains';
 
 // ── QIE Testnet chain definition ──────────────────────────────────────────────
 export const qieTestnet = {
-  id: 5656,
+  id: 1983,
   name: 'QIE Testnet',
   nativeCurrency: {
     name: 'QIE',
@@ -37,7 +37,7 @@ export const qieTestnet = {
 
 // ── Contract address ──────────────────────────────────────────────────────────
 export const CONTRACT_ADDRESS = (
-  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xF93132d75c20EfeD556EC2Bc5aC777750665D3a9'
+  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xb2f4b7e37A8A4B63337eb7735FBB1Bca88A65E57'
 ) as `0x${string}`;
 
 // ── WalletConnect project ID ──────────────────────────────────────────────────

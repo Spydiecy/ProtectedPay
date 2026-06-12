@@ -39,6 +39,35 @@ export interface BatchRecord {
   createdAt: string;
 }
 
+export interface TokenEscrowRecord {
+  id: string;
+  token: string;
+  sender: string;
+  recipient: string;
+  amount: string;
+  status: string;
+  remarks: string;
+  createdAt: string;
+}
+
+export interface PaymentLinkRecord {
+  linkId: string;      // hex bytes32
+  creator: string;
+  amount: string;      // wei string, '0' = any amount
+  description: string;
+  status: string;      // 'Active' | 'Paid' | 'Cancelled'
+  createdAt: string;
+  paidAt: string;
+  paidBy: string;
+  remarks: string;     // payer note
+}
+
+export const LINK_STATUS_LABEL: Record<number, string> = {
+  0: 'Active',
+  1: 'Paid',
+  2: 'Cancelled',
+};
+
 // ── Format helpers ─────────────────────────────────────────────────────────────
 export function formatPOT(raw: string): string {
   if (!raw || raw === '0') return '0 QIE';
@@ -100,55 +129,67 @@ function mapBatch(b: any): BatchRecord {
   };
 }
 
-// ── Main hook ─────────────────────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapTokenEscrow(e: any): TokenEscrowRecord {
+  return {
+    id:        String(e.id),
+    token:     e.token,
+    sender:    e.sender,
+    recipient: e.recipient,
+    amount:    String(e.amount),
+    status:    ESCROW_STATUS_LABEL[Number(e.status)] ?? 'Unknown',
+    remarks:   e.remarks,
+    createdAt: String(e.createdAt),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapPaymentLink(l: any): PaymentLinkRecord {
+  return {
+    linkId:      l.linkId,
+    creator:     l.creator,
+    amount:      String(l.amount),
+    description: l.description,
+    status:      LINK_STATUS_LABEL[Number(l.status)] ?? 'Unknown',
+    createdAt:   String(l.createdAt),
+    paidAt:      String(l.paidAt),
+    paidBy:      l.paidBy,
+    remarks:     l.remarks,
+  };
+}
+
 export function useHistory() {
   const { address } = useAccount();
   const client      = usePublicClient();
   const { data: balanceData, refetch: refetchBalance } = useBalance({ address });
 
-  const [escrows,  setEscrows]  = useState<EscrowRecord[]>([]);
-  const [groups,   setGroups]   = useState<GroupRecord[]>([]);
-  const [batches,  setBatches]  = useState<BatchRecord[]>([]);
-  const [balance,  setBalance]  = useState<string | null>(null);
-  const [loading,  setLoading]  = useState(false);
+  const [escrows,       setEscrows]       = useState<EscrowRecord[]>([]);
+  const [tokenEscrows,  setTokenEscrows]  = useState<TokenEscrowRecord[]>([]);
+  const [groups,        setGroups]        = useState<GroupRecord[]>([]);
+  const [batches,       setBatches]       = useState<BatchRecord[]>([]);
+  const [paymentLinks,  setPaymentLinks]  = useState<PaymentLinkRecord[]>([]);
+  const [balance,       setBalance]       = useState<string | null>(null);
+  const [loading,       setLoading]       = useState(false);
 
   const refresh = useCallback(async () => {
     if (!address || !client) return;
     setLoading(true);
     try {
-      // Balance
-      const bal = await refetchBalance();
-      if (bal.data) {
-        setBalance(String(bal.data.value));
-      }
+      const [bal, rawEscrows, rawTokenEscrows, rawGroups, rawBatches, rawLinks] = await Promise.all([
+        refetchBalance(),
+        client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUserEscrows', args: [address] }),
+        client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUserTokenEscrows', args: [address] }),
+        client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUserGroups', args: [address] }),
+        client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUserBatches', args: [address] }),
+        client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUserPaymentLinks', args: [address] }),
+      ]);
 
-      // getUserEscrows — contract returns both sent and received
-      const rawEscrows = await client.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: PROTECTED_PAY_ABI,
-        functionName: 'getUserEscrows',
-        args: [address],
-      }) as unknown[];
-      setEscrows([...rawEscrows].reverse().map(mapEscrow));
-
-      // getUserGroups — includes creator, recipient, AND contributors
-      const rawGroups = await client.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: PROTECTED_PAY_ABI,
-        functionName: 'getUserGroups',
-        args: [address],
-      }) as unknown[];
-      setGroups([...rawGroups].reverse().map(mapGroup));
-
-      // getUserBatches — only creator
-      const rawBatches = await client.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: PROTECTED_PAY_ABI,
-        functionName: 'getUserBatches',
-        args: [address],
-      }) as unknown[];
-      setBatches([...rawBatches].reverse().map(mapBatch));
-
+      if (bal.data) setBalance(String(bal.data.value));
+      setEscrows([...(rawEscrows as unknown[])].reverse().map(mapEscrow));
+      setTokenEscrows([...(rawTokenEscrows as unknown[])].reverse().map(mapTokenEscrow));
+      setGroups([...(rawGroups as unknown[])].reverse().map(mapGroup));
+      setBatches([...(rawBatches as unknown[])].reverse().map(mapBatch));
+      setPaymentLinks([...(rawLinks as unknown[])].reverse().map(mapPaymentLink));
     } catch (err) {
       console.warn('History refresh error:', err);
     } finally {
@@ -156,10 +197,9 @@ export function useHistory() {
     }
   }, [address, client, refetchBalance]);
 
-  // Also expose formatted balance
   const formattedBalance = balance ? formatPOT(balance)
     : balanceData ? `${formatNative(balanceData.value)} ${balanceData.symbol}`
     : null;
 
-  return { escrows, groups, batches, balance, formattedBalance, loading, refresh };
+  return { escrows, tokenEscrows, groups, batches, paymentLinks, balance, formattedBalance, loading, refresh };
 }
