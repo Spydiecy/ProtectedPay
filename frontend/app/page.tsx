@@ -2,9 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useTheme } from 'next-themes';
-import { useAccount } from 'wagmi';
-import WalletModal from './components/WalletModal';
 import { ContainerScroll } from './components/ui/container-scroll-animation';
 import {
   ArrowRight, Lock, Users, Zap, Globe,
@@ -70,14 +67,6 @@ const FEATURES = [
   },
 ];
 
-const STATS = [
-  { value: '4',    label: 'Payment Primitives' },
-  { value: 'QIE',  label: 'Native Gas Token'   },
-  { value: 'EVM',  label: 'Smart Contracts'    },
-  { value: '0',    label: 'Intermediaries'      },
-];
-
-
 const FAQS = [
   {
     q: 'What is an escrow transfer?',
@@ -97,7 +86,7 @@ const FAQS = [
   },
   {
     q: 'What token is used for gas?',
-    a: 'All transactions on ProtectedPay use QIE, the native token of the QIE Testnet. You need a small amount of POT in your wallet to pay for gas on each transaction.',
+    a: 'All transactions on ProtectedPay use QIE, the native token of the QIE Testnet. You need a small amount of QIE in your wallet to pay for gas on each transaction.',
   },
   {
     q: 'Is ProtectedPay non-custodial?',
@@ -105,7 +94,7 @@ const FAQS = [
   },
   {
     q: 'Which wallets are supported?',
-    a: 'ProtectedPay works with any Polkadot-compatible browser extension: Polkadot.js Extension, SubWallet, and Talisman. Install any one of them, create an account, and connect.',
+    a: 'ProtectedPay works with any EVM-compatible wallet: MetaMask, Rainbow, Coinbase Wallet, Trust Wallet, and more. Install any one of them, switch to QIE Testnet, and connect.',
   },
 ];
 
@@ -152,12 +141,6 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 }
 
 export default function HomePage() {
-  const { isConnected } = useAccount();
-  const { theme } = useTheme();
-  const [showModal, setShowModal] = useState(false);
-
-  const heroImg = theme === 'light' ? '/hero-img-light.png' : '/hero-img-dark.png';
-
   return (
     <main style={{ background: 'var(--background)', minHeight: '100vh', overflowX: 'hidden' }}>
 
@@ -172,9 +155,8 @@ export default function HomePage() {
             }}>
               <span style={{
                 width: 6, height: 6, borderRadius: '50%',
-                background: isConnected ? 'var(--success)' : 'var(--primary)',
+                background: 'var(--primary)',
                 display: 'inline-block',
-                animation: isConnected ? 'pulse 2s infinite' : 'none',
               }} />
               QIE Testnet · EVM Smart Contracts · QIE Gas
             </p>
@@ -228,14 +210,17 @@ export default function HomePage() {
             </div>
           </div>
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-            <img src={heroImg} alt="ProtectedPay app"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top left', display: 'block' }}
-              onError={e => {
-                (e.currentTarget as HTMLImageElement).style.display = 'none';
-                const p = e.currentTarget.parentElement!;
-                p.style.padding = '24px';
-                p.innerHTML = `<div style="margin-bottom:20px"><p style="font-size:10px;color:var(--foreground-subtle);margin-bottom:4px;font-weight:700;letter-spacing:1px">WELCOME BACK</p><p style="font-size:22px;font-weight:800;color:var(--foreground);letter-spacing:-0.5px">ProtectedPay</p><p style="font-size:12px;color:var(--foreground-muted);margin-top:3px">Here's what's happening with your account.</p></div><div style="padding:16px 20px;border-radius:12px;margin-bottom:16px;background:var(--primary-container);border:1px solid rgba(45,212,191,0.3)"><p style="font-size:10px;color:var(--on-primary-container);opacity:0.7;margin-bottom:4px;font-weight:700;letter-spacing:1px">POT BALANCE</p><p style="font-size:30px;font-weight:800;color:var(--on-primary-container);letter-spacing:-1px">1,000<span style="font-size:16px">.00</span></p></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="padding:14px;border-radius:10px;background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.25)"><p style="font-size:10px;font-weight:700;color:var(--primary);letter-spacing:1px">PROTECTED</p><p style="font-size:12px;color:var(--foreground);margin-top:5px">Lock funds on-chain</p></div><div style="padding:14px;border-radius:10px;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.2)"><p style="font-size:10px;font-weight:700;color:var(--primary);letter-spacing:1px">GROUP</p><p style="font-size:12px;color:var(--foreground);margin-top:5px">Crowdfund payments</p></div><div style="padding:14px;border-radius:10px;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.2)"><p style="font-size:10px;font-weight:700;color:var(--primary);letter-spacing:1px">BATCH</p><p style="font-size:12px;color:var(--foreground);margin-top:5px">Atomic multi-send</p></div><div style="padding:14px;border-radius:10px;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.2)"><p style="font-size:10px;font-weight:700;color:var(--primary);letter-spacing:1px">IDENTITY</p><p style="font-size:12px;color:var(--foreground);margin-top:5px">On-chain usernames</p></div></div>`;
-              }}
+            <img
+              src="/hero-img-dark.png"
+              alt="ProtectedPay app"
+              className="hero-dark"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top left' }}
+            />
+            <img
+              src="/hero-img-light.png"
+              alt="ProtectedPay app"
+              className="hero-light"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top left', position: 'absolute', top: 0, left: 0 }}
             />
           </div>
         </div>
@@ -245,13 +230,13 @@ export default function HomePage() {
       <section style={{ padding: '64px 0 72px', textAlign: 'center' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
           <span style={{ fontSize: 14, color: 'var(--foreground-subtle)', fontWeight: 400 }}>Powered by</span>
-          <img src="/portaldot-logo.png" alt="Portaldot"
+          <img src="/chain/QIE.png" alt="QIE Network"
             style={{ height: 48, width: 'auto', objectFit: 'contain', display: 'block' }}
             onError={e => {
               const el = e.currentTarget as HTMLImageElement;
               el.style.display = 'none';
               const span = document.createElement('span');
-              span.textContent = 'Portaldot';
+              span.textContent = 'QIE Network';
               span.style.cssText = 'font-size:28px;font-weight:800;color:var(--foreground);letter-spacing:-1px';
               el.parentElement?.appendChild(span);
             }}
@@ -312,7 +297,7 @@ export default function HomePage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderTop: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>
             {[
-              { n: '01', title: 'Connect Wallet',    desc: 'Install Polkadot.js, SubWallet, or Talisman and connect your account in one click.' },
+              { n: '01', title: 'Connect Wallet',    desc: 'Install MetaMask, Rainbow, or any EVM wallet. Connect to QIE Testnet in one click — the app will prompt you to add the chain.' },
               { n: '02', title: 'Register Username', desc: 'Claim a unique on-chain name. Others can send to @you instead of a long address.' },
               { n: '03', title: 'Send or Receive',   desc: 'Create an escrow, start a group payment, or batch-send to multiple addresses.' },
               { n: '04', title: 'Claim Funds',       desc: 'Recipients claim directly from the contract. Fully trustless. No middleman.' },
@@ -432,7 +417,7 @@ export default function HomePage() {
               </a>
 
               {/* GitHub */}
-              <a href="https://github.com/Spydiecy/ProtectedPay_Portaldot" target="_blank" rel="noopener noreferrer"
+              <a href="https://github.com/Spydiecy/ProtectedPay_Qie" target="_blank" rel="noopener noreferrer"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 34, height: 34, borderRadius: 8,
@@ -456,7 +441,6 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {showModal && <WalletModal onClose={() => setShowModal(false)} />}
     </main>
   );
 }
