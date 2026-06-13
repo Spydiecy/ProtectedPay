@@ -5,10 +5,10 @@ import { parseEther } from 'viem';
 import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useHistory, formatPOT } from '../hooks/useHistory';
 import { PROTECTED_PAY_ABI } from '../lib/abi';
-import { CONTRACT_ADDRESS } from '../lib/wagmi';
+import { CONTRACT_ADDRESS, shortAddress } from '../lib/wagmi';
 import WalletGuard from '../components/WalletGuard';
 import Toast, { ToastType } from '../components/Toast';
-import { Users, UserPlus, XCircle, RefreshCw, AtSign } from 'lucide-react';
+import { Users, UserPlus, XCircle, RefreshCw, AtSign, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 
 interface GroupData {
   id: bigint; creator: string; recipient: string;
@@ -24,6 +24,100 @@ const INPUT: React.CSSProperties = {
 };
 
 const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'ETH';
+
+// ── Inline expandable contributors for group history cards ───────────────────
+function AddrPill({ address, myAddr, client }: { address: string; myAddr: string; client: ReturnType<typeof usePublicClient> }) {
+  const [copied, setCopied] = useState(false);
+  const [uname,  setUname]  = useState<string | null>(null);
+  useEffect(() => {
+    if (!address || !client) return;
+    client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [address as `0x${string}`] })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then((u: any) => { if (u?.username) setUname(u.username); }).catch(() => {});
+  }, [address, client]);
+  return (
+    <button onClick={() => { navigator.clipboard.writeText(address); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+      title={address}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 7, background: 'var(--surface-card)', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11 }}>
+      {uname && <span style={{ fontWeight: 700, color: 'var(--primary)' }}>@{uname}</span>}
+      <span style={{ fontFamily: 'monospace', color: 'var(--foreground-muted)' }}>{shortAddress(address)}</span>
+      {address.toLowerCase() === myAddr && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)' }}>YOU</span>}
+      {copied ? <Check size={10} color="var(--primary)" /> : <Copy size={10} color="var(--foreground-subtle)" />}
+    </button>
+  );
+}
+
+function GroupContributorsInline({ groupId, creator, recipient, amountPerPerson, numParticipants, remarks, myAddr, client }: {
+  groupId: string; creator: string; recipient: string;
+  amountPerPerson: string; numParticipants: string; remarks: string;
+  myAddr: string; client: ReturnType<typeof usePublicClient>;
+}) {
+  const [open,         setOpen]         = useState(false);
+  const [contributors, setContributors] = useState<string[] | null>(null);
+  const [fetching,     setFetching]     = useState(false);
+
+  const load = useCallback(async () => {
+    if (contributors !== null || !client) return;
+    setFetching(true);
+    try {
+      const addrs = await client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getGroupContributors', args: [BigInt(groupId)] }) as string[];
+      setContributors(addrs);
+    } catch { setContributors([]); }
+    finally { setFetching(false); }
+  }, [groupId, client, contributors]);
+
+  const toggle = () => { if (!open) load(); setOpen(o => !o); };
+
+  return (
+    <>
+      <button onClick={toggle}
+        style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 7, background: open ? 'var(--primary-container)' : 'var(--surface-elevated)', border: `1px solid ${open ? 'rgba(45,212,191,0.3)' : 'var(--border)'}`, color: open ? 'var(--on-primary-container)' : 'var(--foreground-muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+        <Users size={11} />
+        {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+        {open ? 'Hide details' : 'Show creator · recipient · contributors'}
+      </button>
+      {open && (
+        <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 10, background: 'var(--surface-elevated)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Creator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)', minWidth: 60, letterSpacing: 0.5 }}>CREATOR</span>
+            <AddrPill address={creator} myAddr={myAddr} client={client} />
+          </div>
+          {/* Recipient */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', minWidth: 60, letterSpacing: 0.5 }}>RECEIVES</span>
+              <AddrPill address={recipient} myAddr={myAddr} client={client} />
+            </div>
+          </div>
+          {/* Contributors */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)', letterSpacing: 0.5 }}>
+              CONTRIBUTORS ({fetching ? '…' : `${contributors?.length ?? 0}/${numParticipants}`})
+            </span>
+            {fetching && <p style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Loading…</p>}
+            {contributors && contributors.map((addr, i) => (
+              <div key={addr} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--foreground-subtle)', minWidth: 16 }}>{String(i + 1).padStart(2, '0')}</span>
+                  <AddrPill address={addr} myAddr={myAddr} client={client} />
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>{formatPOT(amountPerPerson)}</span>
+              </div>
+            ))}
+            {contributors && parseInt(numParticipants) > contributors.length && Array.from({ length: parseInt(numParticipants) - contributors.length }).map((_, i) => (
+              <div key={`p-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 7, opacity: 0.4 }}>
+                <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--foreground-subtle)', minWidth: 16 }}>{String((contributors.length) + i + 1).padStart(2, '0')}</span>
+                <span style={{ fontSize: 11, color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>Awaiting…</span>
+              </div>
+            ))}
+          </div>
+          {remarks && <p style={{ fontSize: 11, color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>&ldquo;{remarks}&rdquo;</p>}
+        </div>
+      )}
+    </>
+  );
+}
 
 function GroupContent() {
   const { address } = useAccount();
@@ -104,9 +198,18 @@ function GroupContent() {
   }, [writeContractAsync, handleLookup]);
 
   const handleCancel = useCallback(async (id: string) => {
-    setLoading(true); t('Cancelling…', 'loading');
+    setLoading(true); t('Cancelling & refunding all…', 'loading');
     try {
       const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'cancelGroupPayment', args: [BigInt(id)] });
+      setTxHash(hash);
+    } catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
+    finally { setLoading(false); }
+  }, [writeContractAsync]);
+
+  const handleWithdraw = useCallback(async (id: string) => {
+    setLoading(true); t('Withdrawing contribution…', 'loading');
+    try {
+      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'withdrawContribution', args: [BigInt(id)] });
       setTxHash(hash);
     } catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
@@ -226,10 +329,10 @@ function GroupContent() {
                           <UserPlus size={16} /> Contribute {formatPOT(contributeGroup.amountPerPerson.toString())}
                         </button>
                       )}
-                      {contributeGroup.creator.toLowerCase() === (address ?? '').toLowerCase() && Number(contributeGroup.contributedCount) === 1 && (
+                      {contributeGroup.creator.toLowerCase() === (address ?? '').toLowerCase() && (
                         <button onClick={() => handleCancel(contributeGroup.id.toString())} disabled={loading}
-                          style={{ flex: 1, padding: '13px', borderRadius: 999, background: 'var(--surface-elevated)', color: 'var(--error)', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                          <XCircle size={16} /> Cancel & Refund
+                          style={{ flex: 1, padding: '13px', borderRadius: 999, background: 'var(--surface-elevated)', color: 'var(--error)', border: '1px solid var(--error-container)', cursor: 'pointer', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.6 : 1 }}>
+                          <XCircle size={16} /> Cancel & Refund All
                         </button>
                       )}
                     </div>
@@ -260,37 +363,84 @@ function GroupContent() {
             ) : (
               groups.map(g => {
                 const gpct = Math.round((parseInt(g.contributedCount) / parseInt(g.numParticipants)) * 100);
-                const isCreator = g.creator.toLowerCase() === (address ?? '').toLowerCase();
-                const statusNum = parseInt(g.status) || (['Open','Completed','Cancelled'].indexOf(g.status));
+                const isCreator   = g.creator.toLowerCase()   === (address ?? '').toLowerCase();
+                const isRecipient = g.recipient.toLowerCase() === (address ?? '').toLowerCase();
+                // status comes back as a string label from mapGroup — map it to a number cleanly
+                const statusNum   = { Open: 0, Completed: 1, Cancelled: 2 }[g.status] ?? 0;
                 const statusLabel = groupStatusLabel(statusNum);
                 const isOpen = statusNum === 0;
+
+                // role: CREATED → you started it | RECIPIENT → you receive the pot | CONTRIBUTED → you joined as contributor
+                const roleLabel = isCreator ? 'CREATED' : isRecipient ? 'RECIPIENT' : 'CONTRIBUTED';
+                const roleColor = isRecipient ? 'var(--primary)' : isCreator ? 'var(--foreground-muted)' : 'var(--secondary)';
                 return (
-                  <div key={g.id} style={{ padding: '22px 24px', borderRadius: 14, background: 'var(--surface-card)', border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground-subtle)' }}>#{g.id}</span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: isCreator ? 'var(--foreground-muted)' : 'var(--primary)' }}>{isCreator ? 'CREATED' : 'JOINED'}</span>
+                  <div key={g.id} style={{ borderRadius: 14, background: 'var(--surface-card)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    {/* Card header */}
+                    <div style={{ padding: '22px 24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground-subtle)' }}>#{g.id}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: roleColor, padding: '2px 8px', borderRadius: 999, background: isRecipient ? 'rgba(45,212,191,0.12)' : 'rgba(0,0,0,0.06)' }}>{roleLabel}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {g.createdAt && g.createdAt !== '0' && (
+                            <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>
+                              {new Date(parseInt(g.createdAt) * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          )}
+                          <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: isOpen ? 'rgba(45,212,191,0.12)' : 'rgba(0,0,0,0.06)', color: isOpen ? 'var(--primary)' : 'var(--foreground-muted)' }}>{statusLabel}</span>
+                        </div>
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: isOpen ? 'rgba(45,212,191,0.12)' : 'rgba(0,0,0,0.06)', color: isOpen ? 'var(--primary)' : 'var(--foreground-muted)' }}>{statusLabel}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)' }}>{formatPOT(g.totalAmount)}</span>
-                      <span style={{ fontSize: 14, color: 'var(--foreground-muted)' }}>{formatPOT(g.amountPerPerson)} each</span>
-                    </div>
-                    <div style={{ marginBottom: isOpen ? 14 : 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--foreground-subtle)', marginBottom: 6 }}>
-                        <span>{g.contributedCount}/{g.numParticipants} contributors</span><span>{gpct}%</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)' }}>{formatPOT(g.totalAmount)}</span>
+                        <span style={{ fontSize: 14, color: 'var(--foreground-muted)' }}>{formatPOT(g.amountPerPerson)} each</span>
                       </div>
-                      <div style={{ height: 6, borderRadius: 999, background: 'var(--surface-active)', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', borderRadius: 999, background: 'var(--primary)', width: `${gpct}%` }} />
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--foreground-subtle)', marginBottom: 6 }}>
+                          <span>{g.contributedCount}/{g.numParticipants} contributors</span><span>{gpct}%</span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 999, background: 'var(--surface-active)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', borderRadius: 999, background: 'var(--primary)', width: `${gpct}%` }} />
+                        </div>
                       </div>
+                      {/* Details toggle */}
+                      <GroupContributorsInline
+                        groupId={g.id}
+                        creator={g.creator}
+                        recipient={g.recipient}
+                        amountPerPerson={g.amountPerPerson}
+                        numParticipants={g.numParticipants}
+                        remarks={g.remarks}
+                        myAddr={(address ?? '').toLowerCase()}
+                        client={client}
+                      />
+                      {isOpen && (
+                        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                          {!isCreator && !isRecipient && (
+                            <button onClick={() => {
+                              setMode('contribute');
+                              setContributeId(g.id);
+                              setContributeGroup(null);
+                            }}
+                              style={{ flex: 1, padding: '9px', borderRadius: 999, background: 'rgba(45,212,191,0.1)', color: 'var(--primary)', border: '1px solid rgba(45,212,191,0.25)', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                              <UserPlus size={14} /> Contribute
+                            </button>
+                          )}
+                          {!isCreator && !isRecipient && (
+                            <button onClick={() => handleWithdraw(g.id)} disabled={loading}
+                              style={{ flex: 1, padding: '9px', borderRadius: 999, background: 'transparent', color: 'var(--error)', border: '1px solid var(--error-container)', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: loading ? 0.6 : 1 }}>
+                              <XCircle size={14} /> Withdraw My Share
+                            </button>
+                          )}
+                          {isCreator && (
+                            <button onClick={() => handleCancel(g.id)} disabled={loading}
+                              style={{ flex: 1, padding: '9px', borderRadius: 999, background: 'transparent', color: 'var(--error)', border: '1px solid var(--error-container)', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: loading ? 0.6 : 1 }}>
+                              <XCircle size={14} /> Cancel & Refund All
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {isOpen && !isCreator && (
-                      <button onClick={() => { setMode('contribute'); setContributeId(g.id); setTimeout(handleLookup, 100); }}
-                        style={{ width: '100%', padding: '9px', borderRadius: 999, background: 'rgba(45,212,191,0.1)', color: 'var(--primary)', border: '1px solid rgba(45,212,191,0.25)', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                        <UserPlus size={14} /> Contribute to this group
-                      </button>
-                    )}
                   </div>
                 );
               })
