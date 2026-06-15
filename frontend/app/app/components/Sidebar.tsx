@@ -7,10 +7,10 @@ import { useAccount, useDisconnect, useBalance } from 'wagmi';
 import { formatNative, shortAddress } from '../../lib/wagmi';
 import {
   Lock, Users, Zap, History, ChevronLeft, ChevronRight,
-  Copy, Check, Home, Sun, Moon, LogOut,
+  Copy, Check, Home, Sun, Moon, LogOut, Link2,
 } from 'lucide-react';
 
-export type AppTab = 'home' | 'protected' | 'group' | 'batch' | 'history';
+export type AppTab = 'home' | 'protected' | 'group' | 'batch' | 'history' | 'links';
 
 interface SidebarProps {
   activeTab: AppTab;
@@ -21,6 +21,7 @@ const NAV_ITEMS: { tab: AppTab; icon: React.ElementType; label: string }[] = [
   { tab: 'protected', icon: Lock,    label: 'Protected Transfer' },
   { tab: 'group',     icon: Users,   label: 'Group Split'        },
   { tab: 'batch',     icon: Zap,     label: 'Batch Payment'      },
+  { tab: 'links',     icon: Link2,   label: 'Payment Links'      },
   { tab: 'history',   icon: History, label: 'History'            },
 ];
 

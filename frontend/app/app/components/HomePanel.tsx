@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { parseEther } from 'viem';
 import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { useHistory, formatPOT, EscrowRecord, GroupRecord, BatchRecord } from '../../hooks/useHistory';
+import { useHistory, formatPOT, EscrowRecord, GroupRecord, BatchRecord, TokenEscrowRecord, PaymentLinkRecord } from '../../hooks/useHistory';
 import { PROTECTED_PAY_ABI, ESCROW_STATUS_LABEL } from '../../lib/abi';
 import { CONTRACT_ADDRESS, shortAddress } from '../../lib/wagmi';
 import Toast, { ToastType } from '../../components/Toast';
@@ -11,7 +11,7 @@ import { AppTab } from './Sidebar';
 import {
   Lock, Users, Zap, History, ArrowRight,
   CheckCircle, RefreshCw, Copy, Check,
-  ArrowUpRight, ArrowDownLeft,
+  ArrowUpRight, ArrowDownLeft, Coins, Link2, CheckCircle2,
 } from 'lucide-react';
 
 interface UserProfile { username: string; createdAt: bigint; }
@@ -26,7 +26,7 @@ const QUICK_ACTIONS: { tab: AppTab; icon: React.ElementType; label: string }[] =
 export default function HomePanel({ onTabChange }: { onTabChange: (tab: AppTab) => void }) {
   const { address } = useAccount();
   const client      = usePublicClient();
-  const { escrows, groups, batches, formattedBalance, loading: histLoading, refresh } = useHistory();
+  const { escrows, tokenEscrows, groups, batches, paymentLinks, formattedBalance, loading: histLoading, refresh } = useHistory();
   const { writeContractAsync } = useWriteContract();
 
   const [profile,  setProfile]  = useState<UserProfile | null>(null);
@@ -67,16 +67,20 @@ export default function HomePanel({ onTabChange }: { onTabChange: (tab: AppTab) 
   const copyAddr = () => { navigator.clipboard.writeText(addr); setCopied(true); setTimeout(() => setCopied(false), 2000); };
 
   type AnyTxn =
-    | { kind: 'protected'; data: EscrowRecord }
-    | { kind: 'group';     data: GroupRecord  }
-    | { kind: 'batch';     data: BatchRecord  };
+    | { kind: 'protected'; data: EscrowRecord;      ts: number }
+    | { kind: 'token';     data: TokenEscrowRecord; ts: number }
+    | { kind: 'group';     data: GroupRecord;       ts: number }
+    | { kind: 'batch';     data: BatchRecord;       ts: number }
+    | { kind: 'link';      data: PaymentLinkRecord; ts: number };
 
   const recentTxns: AnyTxn[] = [
-    ...escrows.map(d => ({ kind: 'protected' as const, data: d })),
-    ...groups.map(d  => ({ kind: 'group'     as const, data: d })),
-    ...batches.map(d => ({ kind: 'batch'     as const, data: d })),
+    ...escrows.map(d      => ({ kind: 'protected' as const, data: d, ts: parseInt(d.createdAt)      || 0 })),
+    ...tokenEscrows.map(d => ({ kind: 'token'     as const, data: d, ts: parseInt(d.createdAt)      || 0 })),
+    ...groups.map(d       => ({ kind: 'group'     as const, data: d, ts: parseInt(d.createdAt)      || 0 })),
+    ...batches.map(d      => ({ kind: 'batch'     as const, data: d, ts: parseInt(d.createdAt)      || 0 })),
+    ...paymentLinks.map(d => ({ kind: 'link'      as const, data: d, ts: parseInt(d.paidAt || d.createdAt) || 0 })),
   ]
-    .sort((a, b) => parseInt(b.data.id) - parseInt(a.data.id))
+    .sort((a, b) => b.ts - a.ts)
     .slice(0, 5);
 
   return (
@@ -223,6 +227,46 @@ export default function HomePanel({ onTabChange }: { onTabChange: (tab: AppTab) 
                       {g.remarks && <p style={{ fontSize: 11, color: 'var(--foreground-subtle)', marginTop: 2, fontStyle: 'italic' }}>&ldquo;{g.remarks}&rdquo;</p>}
                     </div>
                     <span style={{ fontSize: 11, color: 'var(--foreground-subtle)', flexShrink: 0 }}>#{g.id}</span>
+                  </div>
+                );
+              }
+              if (txn.kind === 'token') {
+                const e = txn.data as TokenEscrowRecord;
+                const isSender = e.sender.toLowerCase() === addr.toLowerCase();
+                const statusLabel = ESCROW_STATUS_LABEL[Number(e.status)] ?? e.status;
+                return (
+                  <div key={`te-${e.id}`} style={{ padding: '14px 18px', borderRadius: 12, background: 'var(--surface-card)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(251,191,36,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Coins size={16} color="var(--warning)" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Token Escrow</span>
+                        <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 999, background: 'var(--surface-elevated)', border: '1px solid var(--border)', color: 'var(--foreground-subtle)', fontWeight: 600 }}>{statusLabel}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>{isSender ? 'Sent to' : 'Received from'} {shortAddress(isSender ? e.recipient : e.sender)}</p>
+                    </div>
+                    <span style={{ fontSize: 11, color: 'var(--foreground-subtle)', flexShrink: 0 }}>#{e.id}</span>
+                  </div>
+                );
+              }
+              if (txn.kind === 'link') {
+                const l = txn.data as PaymentLinkRecord;
+                const isPaid = l.status === 'Paid';
+                return (
+                  <div key={`l-${l.linkId}`} style={{ padding: '14px 18px', borderRadius: 12, background: 'var(--surface-card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: isPaid ? 'rgba(45,212,191,0.1)' : 'var(--surface-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {isPaid ? <CheckCircle2 size={16} color="var(--primary)" /> : <Link2 size={16} color="var(--foreground-muted)" />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>
+                          {l.amount === '0' ? 'Open amount' : formatPOT(l.amount)}
+                        </span>
+                        <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 999, background: isPaid ? 'rgba(45,212,191,0.12)' : 'var(--surface-elevated)', border: `1px solid ${isPaid ? 'rgba(45,212,191,0.3)' : 'var(--border)'}`, color: isPaid ? 'var(--primary)' : 'var(--foreground-subtle)', fontWeight: 600 }}>{l.status}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>Payment Link · {l.description}</p>
+                    </div>
                   </div>
                 );
               }

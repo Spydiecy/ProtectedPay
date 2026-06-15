@@ -11,6 +11,7 @@ const EscrowContent  = dynamic(() => import('../escrow/page').then(m => ({ defau
 const GroupContent   = dynamic(() => import('../group/page').then(m => ({ default: m.default })),   { ssr: false });
 const BatchContent   = dynamic(() => import('../batch/page').then(m => ({ default: m.default })),   { ssr: false });
 const ProfileContent = dynamic(() => import('../profile/page').then(m => ({ default: m.default })), { ssr: false });
+const LinksContent   = dynamic(() => import('../links/page').then(m => ({ default: m.default })),   { ssr: false });
 
 export default function AppPage() {
   const { isConnected, isConnecting } = useAccount();
@@ -37,6 +38,7 @@ export default function AppPage() {
         {activeTab === 'protected' && <EscrowContent />}
         {activeTab === 'group'     && <GroupContent />}
         {activeTab === 'batch'     && <BatchContent />}
+        {activeTab === 'links'     && <LinksContent />}
         {activeTab === 'history'   && <ProfileContent />}
       </main>
     </div>
