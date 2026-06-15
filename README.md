@@ -38,7 +38,7 @@ Addresses are 48 characters of anxiety. Register a human-readable username on-ch
 |---|---|
 | Contract Address | `0xF93132d75c20EfeD556EC2Bc5aC777750665D3a9` |
 | Network | QIE Testnet |
-| Chain ID | `5656` |
+| Chain ID | `1983` |
 | RPC | `https://rpc1testnet.qie.digital` |
 | Explorer | [testnet.qie.digital](https://testnet.qie.digital) |
 | Gas Token | QIE |
@@ -83,7 +83,7 @@ The contract is built with security first:
 | Layer | Technology |
 |---|---|
 | Smart Contract | Solidity 0.8.24 (EVM) |
-| Blockchain | QIE Testnet (Chain ID: 5656) |
+| Blockchain | QIE Testnet (Chain ID: 1983) |
 | Gas Token | QIE |
 | Frontend | Next.js 16, TypeScript, Material Design 3 |
 | Wallet | RainbowKit v2 (MetaMask, Rainbow, WalletConnect, Coinbase, Trust) |
