@@ -81,7 +81,7 @@ When paid: both parties can download a PDF invoice from the receipt page.
 
 ### Username Registry
 Register a unique on-chain name (3–30 chars). Others send to @you instead of 0x...
-Register in the **Profile / History** tab.
+Say "register username spy" or "I want to register @myname" — I'll check availability and create the transaction for you.
 
 ### Transaction History
 All activity (transfers, groups, batches, links) visible in the **History** tab.
@@ -313,6 +313,18 @@ export async function POST(req: Request) {
           } catch {
             return { groupId, action: 'contributeToGroup', amountPerPerson: '0', perPersonDisplay: 'unknown' };
           }
+        },
+      }),
+
+      buildRegisterUsername: tool({
+        description: 'Build a username registration transaction. Use this when the user wants to register an on-chain username.',
+        parameters: z.object({ username: z.string().min(3).max(30).describe('The username to register (3-30 chars, no @)') }),
+        execute: async ({ username }) => {
+          try {
+            const addr = await publicClient.readContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: 'resolveUsername', args: [username] }) as string;
+            if (addr && addr !== '0x0000000000000000000000000000000000000000') return { error: `@${username} is already taken by ${addr.slice(0, 8)}…` };
+          } catch { /* not taken */ }
+          return { username, steps: [`Click **Register @${username}** below — confirm in your wallet`, `Once confirmed, @${username} will resolve to your address on-chain`] };
         },
       }),
 

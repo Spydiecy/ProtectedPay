@@ -10,7 +10,7 @@ import { CONTRACT_ADDRESS } from '../lib/wagmi';
 import { MessageCircle, X, Send, Bot, User, Loader2, Sparkles, ChevronDown, Zap, CheckCircle2 } from 'lucide-react';
 
 interface PendingAction {
-  type: 'createEscrow' | 'createGroupPayment' | 'createPaymentLink' | 'batchTransfer' | 'claimEscrow' | 'refundEscrow' | 'contributeToGroup';
+  type: 'createEscrow' | 'createGroupPayment' | 'createPaymentLink' | 'batchTransfer' | 'claimEscrow' | 'refundEscrow' | 'contributeToGroup' | 'registerUsername';
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   params: Record<string, any>;
   label: string;
@@ -97,6 +97,9 @@ function extractAction(invocations: any[]): PendingAction | null {
       const perWei = r.amountPerPerson ? BigInt(r.amountPerPerson) : undefined;
       return { type: 'contributeToGroup', params: { groupId: r.groupId }, label: `Contribute to Group #${r.groupId}${r.perPersonDisplay ? ` · ${r.perPersonDisplay} QIE` : ''}`, value: perWei };
     }
+    if (inv.toolName === 'buildRegisterUsername' && r.username) {
+      return { type: 'registerUsername', params: { username: r.username }, label: `Register @${r.username}`, value: undefined };
+    }
   }
   return null;
 }
@@ -128,6 +131,7 @@ function TxButton({ action, onDone }: { action: PendingAction; onDone: (msg: str
       else if (action.type === 'claimEscrow')        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'claimEscrow',        args: [BigInt(action.params.id)] });
       else if (action.type === 'refundEscrow')       hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'refundEscrow',       args: [BigInt(action.params.id)] });
       else if (action.type === 'contributeToGroup')  hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'contributeToGroup',  args: [BigInt(action.params.groupId)],                                                                        value: action.value ?? 0n });
+      else if (action.type === 'registerUsername')   hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'registerUsername',   args: [action.params.username] });
       else { setPhase('idle'); return; }
       setTxHash(hash);
       setPhase('mining');

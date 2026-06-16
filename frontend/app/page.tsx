@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ContainerScroll } from './components/ui/container-scroll-animation';
 import {
   ArrowRight, Lock, Users, Zap, Globe,
-  ShieldCheck, Sparkles, ChevronDown,
+  ShieldCheck, Sparkles, ChevronDown, Link2, Bot, Coins,
 } from 'lucide-react';
 
 // Official X (Twitter) logo SVG
@@ -31,35 +31,56 @@ const FEATURES = [
     href: '/app',
   },
   {
-    num: '02', tag: 'GROUP', icon: Users,
+    num: '02', tag: 'TOKEN ESCROW', icon: Coins,
+    title: 'Escrow any ERC-20 token, not just QIE.',
+    desc: 'Paste a token contract address, approve once, and lock any ERC-20 in the same trustless escrow flow. Claim or refund anytime.',
+    stat: 'ANY', statLabel: 'ERC-20',
+    href: '/app',
+  },
+  {
+    num: '03', tag: 'GROUP', icon: Users,
     title: 'Crowdfund a payment with your team.',
-    desc: 'Set a total, invite contributors. Funds auto-release to the recipient when everyone has paid their share.',
+    desc: 'Set a total, invite contributors. Funds auto-release to the recipient when everyone has paid. Anyone can withdraw their share anytime.',
     stat: 'N→1', statLabel: 'CONTRIBUTORS',
     href: '/app',
   },
   {
-    num: '03', tag: 'BATCH', icon: Zap,
+    num: '04', tag: 'BATCH', icon: Zap,
     title: 'One transaction to pay everyone.',
-    desc: 'Send to dozens of recipients atomically. All succeed or all revert. Perfect for payroll and airdrops.',
+    desc: 'Send to dozens of recipients atomically. All succeed or all revert. Perfect for payroll, airdrops, and bulk payouts.',
     stat: '1 TX', statLabel: 'ATOMIC',
     href: '/app',
   },
   {
-    num: '04', tag: 'IDENTITY', icon: Globe,
+    num: '05', tag: 'PAYMENT LINKS', icon: Link2,
+    title: 'Create a link. Get paid. Download invoice.',
+    desc: 'Share a URL or QR code for any payment — fixed or open amount. Once paid, both parties get a downloadable PDF receipt with the transaction hash.',
+    stat: 'QR', statLabel: '+ PDF RECEIPT',
+    href: '/app',
+  },
+  {
+    num: '06', tag: 'PAYBOT AI', icon: Bot,
+    title: 'Talk to your wallet in plain English.',
+    desc: 'Ask PayBot to send funds, check history, or create payment links. It executes real on-chain transactions directly from the chat — no page navigation needed.',
+    stat: 'AI', statLabel: 'POWERED',
+    href: '/app',
+  },
+  {
+    num: '07', tag: 'IDENTITY', icon: Globe,
     title: 'Send to names, not addresses.',
-    desc: 'Register a human-readable username on-chain. Anyone can resolve @yourname to your address instantly.',
+    desc: 'Register a human-readable username on-chain. Anyone can resolve @yourname to your address instantly. Works across all features.',
     stat: '@you', statLabel: 'ON-CHAIN',
     href: '/app',
   },
   {
-    num: '05', tag: 'SECURITY', icon: ShieldCheck,
+    num: '08', tag: 'SECURITY', icon: ShieldCheck,
     title: 'Smart contracts, not promises.',
-    desc: 'Every payment is enforced by EVM smart contract code on QIE Testnet. No company holds your funds. No one can freeze your account.',
+    desc: 'Every payment is enforced by EVM code on QIE Testnet. No company holds your funds. No admin key. No one can freeze your account.',
     stat: '0', statLabel: 'MIDDLEMEN',
     href: '/app',
   },
   {
-    num: '06', tag: 'SIMPLICITY', icon: Sparkles,
+    num: '09', tag: 'SIMPLICITY', icon: Sparkles,
     title: 'Web3 payments that actually make sense.',
     desc: 'No seed phrases in forms. No manual gas estimation. Connect your wallet, pick a feature, and go.',
     stat: '<1min', statLabel: 'TO START',
@@ -69,32 +90,44 @@ const FEATURES = [
 
 const FAQS = [
   {
-    q: 'What is an escrow transfer?',
-    a: 'An escrow transfer locks your funds in a smart contract on QIE Testnet. The recipient can claim them at any time. If they don\'t, you can refund yourself. No third party holds the funds — only the contract.',
+    q: 'What is a protected transfer?',
+    a: 'A protected transfer locks your QIE in a smart contract on QIE Testnet. The recipient can claim at any time. If they don\'t, you refund yourself — no third party holds the funds, only the contract.',
+  },
+  {
+    q: 'Can I escrow ERC-20 tokens too?',
+    a: 'Yes. On the Protected Transfer page, switch to ERC-20 Token mode, paste any token contract address, approve the contract to spend your tokens, then create the escrow. The recipient claims tokens directly from the contract.',
   },
   {
     q: 'How does a group payment work?',
-    a: 'You create a group payment with a total amount and number of participants. Each person contributes an equal share. Once everyone has paid, the contract automatically releases the full amount to the recipient.',
+    a: 'You create a group payment with a total amount and participant count, paying your share upfront. Others join using the Group ID. Once everyone has contributed, the full amount auto-releases. Anyone can withdraw their share anytime before the group completes.',
   },
   {
     q: 'What is a batch transfer?',
-    a: 'A batch transfer lets you send different amounts to multiple addresses in a single transaction. It\'s atomic — if any transfer fails, the entire batch reverts. Great for payroll, airdrops, or splitting bills.',
+    a: 'A batch transfer lets you send different amounts to multiple addresses in one transaction. It\'s atomic — if any transfer fails, the entire batch reverts. Great for payroll, airdrops, or splitting bills.',
+  },
+  {
+    q: 'How do payment links work?',
+    a: 'Create a payment link with a description and optional fixed amount. Share the URL or QR code with anyone. When they pay, both parties can download a PDF invoice with the full receipt including transaction hash.',
+  },
+  {
+    q: 'What is PayBot?',
+    a: 'PayBot is an AI assistant built into the dashboard. You can ask it in plain English — "send 1 QIE to @alice as escrow" — and it will trigger the wallet confirmation popup instantly. It can also check your history, resolve usernames, and explain any feature.',
   },
   {
     q: 'What is the username registry?',
-    a: 'You can register a unique username (3–30 characters) on-chain. Others can look up your address by typing @yourname instead of a long 5G… address. It\'s fully on-chain with no off-chain indexer.',
+    a: 'You can register a unique on-chain username (3–30 characters). Others send to @yourname instead of your full address. It works across all ProtectedPay features and is fully on-chain — no off-chain indexer needed.',
   },
   {
     q: 'What token is used for gas?',
-    a: 'All transactions on ProtectedPay use QIE, the native token of the QIE Testnet. You need a small amount of QIE in your wallet to pay for gas on each transaction.',
+    a: 'All transactions use QIE, the native token of QIE Testnet. You need a small amount of QIE in your wallet to pay for gas.',
   },
   {
     q: 'Is ProtectedPay non-custodial?',
-    a: 'Yes. ProtectedPay is a set of EVM smart contracts deployed on QIE Network. No company or individual holds your funds. The contract code is open source and auditable by anyone.',
+    a: 'Yes. ProtectedPay is a set of EVM smart contracts on QIE Network. No company or individual holds your funds. No admin key, no upgrade mechanism, no pause function. The contract code is open source and auditable by anyone.',
   },
   {
     q: 'Which wallets are supported?',
-    a: 'ProtectedPay works with any EVM-compatible wallet: MetaMask, Rainbow, Coinbase Wallet, Trust Wallet, and more. Install any one of them, switch to QIE Testnet, and connect.',
+    a: 'ProtectedPay works with any EVM-compatible wallet: MetaMask, Rainbow, Coinbase Wallet, Trust Wallet, and more. Switch to QIE Testnet and connect.',
   },
 ];
 
