@@ -1,4 +1,4 @@
-# ProtectedPay
+# ProtectedPay: The Trust Layer for Crypto Payments
 
 **Trustless payment infrastructure on QIE Testnet. No middlemen. No broken promises.**
 
@@ -16,19 +16,28 @@ ProtectedPay puts the smart contract in charge instead of people.
 
 ## What We Built
 
-ProtectedPay is a payment infrastructure layer built as an EVM smart contract deployed on QIE Testnet. Four payment primitives that give users real protection:
+ProtectedPay is a payment infrastructure layer built as an EVM smart contract deployed on QIE Testnet. Seven payment primitives that give users real protection:
 
-### 🔒 Protected Transfer
-Lock funds in a smart contract. The recipient claims when they're ready. If they don't — you get it back. No escrow service, no third party. The contract is the escrow.
+### 🔒 Protected Transfer (Native + ERC-20)
+Lock funds in a smart contract. The recipient claims when ready. If they don't — you get it back. Works for QIE and any ERC-20 token. No escrow service, no third party. The contract is the escrow.
 
 ### 👥 Group Split
-Need to pool money from multiple people before paying someone? Set a total, set a participant count, and let contributors join. The moment the last person pays in, the full amount auto-releases to the recipient. Nobody holds the funds in between.
+Need to pool money from multiple people before paying someone? Set a total, set a participant count, and let contributors join. The moment the last person pays in, the full amount auto-releases. Creator can cancel anytime and everyone gets refunded. Contributors can withdraw their share individually too.
 
 ### ⚡ Batch Payment
-One transaction. Multiple recipients. Different amounts. All atomic — either every transfer succeeds, or none of them do. Built for payroll, airdrops, and anything that involves paying more than one person at once.
+One transaction. Multiple recipients. Different amounts. All atomic — either every transfer succeeds, or none do. Built for payroll, airdrops, and bulk payouts.
+
+### 🔗 Payment Links
+Create a shareable link or QR code for any payment — fixed amount or open amount. Anyone with the link can pay directly from a browser. Once paid, both parties can download a PDF invoice with full receipt details including transaction hash.
 
 ### 🌐 Username Registry
-Addresses are 48 characters of anxiety. Register a human-readable username on-chain. Anyone can resolve @yourname to your address instantly. Send to people, not strings.
+Addresses are 48 characters of anxiety. Register a human-readable username on-chain. Anyone can resolve @yourname to your address instantly. Works across all features.
+
+### 🤖 PayBot — AI Payment Assistant
+Ask PayBot anything in plain English. It reads your on-chain history, resolves usernames, explains features, and — most importantly — executes real transactions directly from the chat. Say "send 1 QIE to @alice as escrow" and a wallet confirmation popup appears instantly. Powered by Mistral AI via Vercel AI SDK.
+
+### 📜 Transaction History
+Full on-chain history across all features — protected transfers, token escrows, group splits, batch payments, and payment links — with expandable details, copyable addresses, username resolution, and timestamps.
 
 ---
 
@@ -36,7 +45,7 @@ Addresses are 48 characters of anxiety. Register a human-readable username on-ch
 
 | Property | Value |
 |---|---|
-| Contract Address | `0xF93132d75c20EfeD556EC2Bc5aC777750665D3a9` |
+| Contract Address | `0xb2f4b7e37A8A4B63337eb7735FBB1Bca88A65E57` |
 | Network | QIE Testnet |
 | Chain ID | `1983` |
 | RPC | `https://rpc1testnet.qie.digital` |
@@ -49,10 +58,10 @@ Addresses are 48 characters of anxiety. Register a human-readable username on-ch
 
 QIE is a high-performance Layer 1 blockchain with EVM compatibility. ProtectedPay runs natively on QIE because:
 
-- **QIE as gas** — every transaction on ProtectedPay uses QIE, the chain's native token. No bridging, no wrapping, no extra steps.
-- **EVM-compatible** — full Ethereum tooling compatibility. The same Solidity contract, the same wallet experience users already know.
-- **On-chain identity** — the username registry is fully on-chain, queryable directly from the contract with no off-chain indexer needed.
-- **Non-custodial** — no admin key, no upgrade mechanism, no pause function. The contract is the only authority.
+- **QIE as gas** — every transaction uses QIE, the chain's native token. No bridging, no wrapping.
+- **EVM-compatible** — full Ethereum tooling. Same Solidity contract, same wallet experience.
+- **On-chain identity** — the username registry is fully on-chain, queryable directly from the contract.
+- **Non-custodial** — no admin key, no upgrade mechanism, no pause function.
 
 ---
 
@@ -68,11 +77,9 @@ Most "group payment" flows require someone to collect money and then pay out. Pr
 
 ## Security
 
-The contract is built with security first:
-
-- **CEI pattern** on every state-changing function — state updated before any ETH transfer, making reentrancy structurally impossible
+- **CEI pattern** on every state-changing function — reentrancy structurally impossible
 - **Checked arithmetic** throughout — no overflow risks
-- **Access control** on every sensitive operation — only sender can refund, only recipient can claim, only creator can cancel
+- **Access control** on every sensitive operation — only sender can refund, only recipient can claim
 - **Atomic batch execution** — entire batch reverts if any single transfer fails
 - **Non-custodial by design** — no admin key, no upgrade mechanism, no pause function
 
@@ -85,21 +92,26 @@ The contract is built with security first:
 | Smart Contract | Solidity 0.8.24 (EVM) |
 | Blockchain | QIE Testnet (Chain ID: 1983) |
 | Gas Token | QIE |
-| Frontend | Next.js 16, TypeScript, Material Design 3 |
+| Frontend | Next.js 16, TypeScript |
 | Wallet | RainbowKit v2 (MetaMask, Rainbow, WalletConnect, Coinbase, Trust) |
 | Chain SDK | wagmi v2 + viem v2 |
+| AI Assistant | PayBot — Mistral Large via Vercel AI SDK with tool-calling |
+| Invoice | Canvas API — PDF receipts, zero dependencies |
 | Styling | CSS custom properties, dark/light theme |
 
 ---
 
 ## Features
 
-- ✅ Protected transfers with claim and refund
-- ✅ Group split payments with auto-release
-- ✅ Atomic batch transfers
+- ✅ Protected transfers — native QIE with claim and refund
+- ✅ ERC-20 token escrow — approve once, create, claim or refund
+- ✅ Group split payments — auto-release, contributor tracking, individual withdrawals
+- ✅ Atomic batch transfers — one tx, multiple recipients
+- ✅ Payment links with QR codes and downloadable PDF invoices
 - ✅ On-chain username registry with @mention resolution
-- ✅ Full transaction history per user
-- ✅ Live balance display in QIE
+- ✅ PayBot AI — natural language interface, executes real transactions from chat
+- ✅ Full transaction history across all feature types
+- ✅ Live QIE balance display
 - ✅ Multi-wallet support via RainbowKit
 - ✅ Light and dark mode
 - ✅ Mobile responsive
