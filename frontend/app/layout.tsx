@@ -3,7 +3,6 @@ import './globals.css';
 import Providers from './components/Providers';
 import Navbar from './components/Navbar';
 import SmoothScroll from './components/SmoothScroll';
-import AgentChatWrapper from './components/AgentChatWrapper';
 
 export const metadata: Metadata = {
   title: 'ProtectedPay — Trustless Payments on QIE Testnet',
@@ -22,7 +21,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Navbar />
           <SmoothScroll />
           {children}
-          <AgentChatWrapper />
         </Providers>
       </body>
     </html>

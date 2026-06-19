@@ -6,6 +6,7 @@ import Sidebar, { AppTab } from './components/Sidebar';
 import ConnectScreen from './components/ConnectScreen';
 import HomePanel from './components/HomePanel';
 import dynamic from 'next/dynamic';
+import AgentChatWrapper from '../components/AgentChatWrapper';
 
 const EscrowContent  = dynamic(() => import('../escrow/page').then(m => ({ default: m.default })),  { ssr: false });
 const GroupContent   = dynamic(() => import('../group/page').then(m => ({ default: m.default })),   { ssr: false });
@@ -41,6 +42,7 @@ export default function AppPage() {
         {activeTab === 'links'     && <LinksContent />}
         {activeTab === 'history'   && <ProfileContent />}
       </main>
+      <AgentChatWrapper />
     </div>
   );
 }

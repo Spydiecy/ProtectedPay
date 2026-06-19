@@ -207,7 +207,7 @@ export default function HomePage() {
               >
                 Launch App <ArrowRight size={17} />
               </Link>
-              <a href="https://x.com/protected_pay" target="_blank" rel="noopener noreferrer"
+              <a href="https://x.com/ProtectedPay_Qie" target="_blank" rel="noopener noreferrer"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
                   padding: '14px 28px', borderRadius: 999,
@@ -429,7 +429,7 @@ export default function HomePage() {
               <span style={{ width: 1, height: 16, background: 'var(--border)' }} />
 
               {/* X / Twitter */}
-              <a href="https://x.com/protected_pay" target="_blank" rel="noopener noreferrer"
+              <a href="https://x.com/ProtectedPay_Qie" target="_blank" rel="noopener noreferrer"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 34, height: 34, borderRadius: 8,
