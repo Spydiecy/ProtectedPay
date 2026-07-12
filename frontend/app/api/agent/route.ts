@@ -3,9 +3,9 @@ import { streamText, tool } from 'ai';
 import { z } from 'zod';
 import { createPublicClient, http, formatEther } from 'viem';
 
-const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xF93132d75c20EfeD556EC2Bc5aC777750665D3a9') as `0x${string}`;
-const NATIVE_SYMBOL    = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
+const NATIVE_SYMBOL = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
 
+// ── Chain definitions ─────────────────────────────────────────────────────────
 const hashkeyTestnet = {
   id: 133,
   name: 'HashKey Chain Testnet',
@@ -13,10 +13,36 @@ const hashkeyTestnet = {
   rpcUrls: { default: { http: ['https://testnet.hsk.xyz'] } },
 } as const;
 
-const publicClient = createPublicClient({
-  chain: hashkeyTestnet as never,
-  transport: http('https://testnet.hsk.xyz'),
-});
+const hashkeyMainnet = {
+  id: 177,
+  name: 'HashKey Chain',
+  nativeCurrency: { name: 'HSK', symbol: 'HSK', decimals: 18 },
+  rpcUrls: { default: { http: ['https://mainnet.hsk.xyz'] } },
+} as const;
+
+// ── Contract addresses per chain ──────────────────────────────────────────────
+const CONTRACT_ADDRESSES: Record<number, `0x${string}`> = {
+  133: (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET || '0xF93132d75c20EfeD556EC2Bc5aC777750665D3a9') as `0x${string}`,
+  177: (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET || '0xCa36dD890F987EDcE1D6D7C74Fb9df627c216BF6') as `0x${string}`,
+};
+
+// ── Explorer URLs per chain ───────────────────────────────────────────────────
+const EXPLORER_URLS: Record<number, string> = {
+  133: 'https://testnet-explorer.hsk.xyz',
+  177: 'https://hashkey.blockscout.com',
+};
+
+// ── Build a chain-specific public client ──────────────────────────────────────
+function getClient(chainId: number) {
+  if (chainId === 177) {
+    return createPublicClient({ chain: hashkeyMainnet as never, transport: http('https://mainnet.hsk.xyz') });
+  }
+  return createPublicClient({ chain: hashkeyTestnet as never, transport: http('https://testnet.hsk.xyz') });
+}
+
+function getNetworkName(chainId: number) {
+  return chainId === 177 ? 'HashKey Chain Mainnet' : 'HashKey Chain Testnet';
+}
 
 const ABI = [
   { name: 'resolveUsername',    type: 'function', stateMutability: 'view', inputs: [{ name: 'username', type: 'string' }], outputs: [{ name: '', type: 'address' }] },
@@ -104,16 +130,25 @@ You cannot sign or submit transactions — the user must do that in their wallet
 - For quoted strings, just write: "your text" with regular quotes — NEVER wrap in asterisks
 - NEVER use single asterisk italic — always use **double asterisks** for emphasis
 
-Connected wallet: {WALLET_PLACEHOLDER}`;
+Connected wallet: {WALLET_PLACEHOLDER}
+Active network: {NETWORK_PLACEHOLDER}`;
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
-  const { messages, walletAddress } = await req.json();
+  const { messages, walletAddress, chainId } = await req.json();
 
-  const system = SYSTEM_PROMPT.replace(
-    '{WALLET_PLACEHOLDER}',
-    walletAddress ?? 'No wallet connected — ask the user to connect their wallet before fetching their history.'
-  );
+  // Resolve chain-specific values — default to testnet if not provided
+  const activeChainId = typeof chainId === 'number' ? chainId : 133;
+  const CONTRACT_ADDRESS = CONTRACT_ADDRESSES[activeChainId] ?? CONTRACT_ADDRESSES[133];
+  const EXPLORER = EXPLORER_URLS[activeChainId] ?? EXPLORER_URLS[133];
+  const networkName = getNetworkName(activeChainId);
+  const publicClient = getClient(activeChainId);
+
+  const system = SYSTEM_PROMPT
+    .replace('{WALLET_PLACEHOLDER}',
+      walletAddress ?? 'No wallet connected — ask the user to connect their wallet before fetching their history.')
+    .replace('{NETWORK_PLACEHOLDER}',
+      `${networkName} (Chain ID: ${activeChainId}, Contract: \`${CONTRACT_ADDRESS}\`, Explorer: ${EXPLORER})`);
 
   const result = await streamText({
     model: mistral('mistral-large-latest'),

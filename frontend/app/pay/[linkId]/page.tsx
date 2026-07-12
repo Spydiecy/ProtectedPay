@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { parseEther, formatEther } from 'viem';
+import { parseEther, formatEther, createPublicClient, http } from 'viem';
 import { useParams } from 'next/navigation';
-import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { PROTECTED_PAY_ABI } from '../../lib/abi';
 import { shortAddress, hashkeyMainnet, hashkeyTestnet, CONTRACT_ADDRESSES, EXPLORER_URLS } from '../../lib/wagmi';
 import { useContractAddress } from '../../hooks/useContract';
@@ -12,7 +12,18 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { generateInvoicePDF } from '../../lib/invoice';
 import { CheckCircle2, Ban, ArrowRight, ExternalLink, Shield, Copy, Check, Download, Share2 } from 'lucide-react';
 
-const NATIVE   = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
+const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
+
+// ── Dedicated read-only clients — completely independent of wallet state ───────
+const mainnetClient = createPublicClient({
+  chain: hashkeyMainnet,
+  transport: http('https://mainnet.hsk.xyz'),
+});
+
+const testnetClient = createPublicClient({
+  chain: hashkeyTestnet,
+  transport: http('https://testnet.hsk.xyz'),
+});
 
 interface LinkData {
   linkId: string;
@@ -79,7 +90,6 @@ export default function PayPage() {
   const linkId = params?.linkId as string;
 
   const { address, isConnected } = useAccount();
-  const client = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const contractAddress = useContractAddress();
 
@@ -102,41 +112,40 @@ export default function PayPage() {
   const { isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash: txHash });
 
   const loadLink = useCallback(async () => {
-    if (!client || !linkId) return;
+    if (!linkId) return;
     setFetching(true);
     setNotFound(false);
 
-    // Try both contracts — mainnet first, then testnet.
-    // This makes the pay page work for anyone regardless of their wallet chain.
+    // Try both chains using dedicated read-only clients.
+    // This works even with no wallet connected, on any browser, with any extension.
     const candidates = [
-      { chainId: hashkeyMainnet.id, addr: CONTRACT_ADDRESSES[hashkeyMainnet.id] },
-      { chainId: hashkeyTestnet.id, addr: CONTRACT_ADDRESSES[hashkeyTestnet.id] },
+      { chainId: hashkeyMainnet.id, readClient: mainnetClient, addr: CONTRACT_ADDRESSES[hashkeyMainnet.id] },
+      { chainId: hashkeyTestnet.id, readClient: testnetClient, addr: CONTRACT_ADDRESSES[hashkeyTestnet.id] },
     ];
 
-    for (const candidate of candidates) {
+    for (const { chainId, readClient, addr } of candidates) {
       try {
-        const data = await client.readContract({
-          address: candidate.addr, abi: PROTECTED_PAY_ABI,
+        const data = await readClient.readContract({
+          address: addr, abi: PROTECTED_PAY_ABI,
           functionName: 'getPaymentLink', args: [linkId as `0x${string}`],
         }) as LinkData;
         if (data && data.creator !== '0x0000000000000000000000000000000000000000') {
           setLink(data);
-          setDetectedChainId(candidate.chainId);
+          setDetectedChainId(chainId);
           try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const user = await client.readContract({ address: candidate.addr, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [data.creator as `0x${string}`] }) as any;
+            const user = await readClient.readContract({ address: addr, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [data.creator as `0x${string}`] }) as any;
             if (user?.username) setCreatorName(user.username);
           } catch { /* no username */ }
           setFetching(false);
-          return; // found it — stop searching
+          return;
         }
       } catch { /* not on this chain, try next */ }
     }
 
-    // Not found on either chain
     setNotFound(true);
     setFetching(false);
-  }, [client, linkId]);
+  }, [linkId]);
 
   useEffect(() => { loadLink(); }, [loadLink]);
 

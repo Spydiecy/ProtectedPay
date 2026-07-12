@@ -174,6 +174,7 @@ function TxButton({ action, onDone }: { action: PendingAction; onDone: (msg: str
 // ── Main AgentChat ────────────────────────────────────────────────────────────
 export default function AgentChat() {
   const { address } = useAccount();
+  const chainId = useChainId();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [hasNew, setHasNew] = useState(false);
@@ -181,7 +182,7 @@ export default function AgentChat() {
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, error, append } = useChat({
     api: '/api/agent',
-    body: { walletAddress: address ?? null },
+    body: { walletAddress: address ?? null, chainId: chainId ?? 133 },
     initialMessages: [{
       id: 'welcome',
       role: 'assistant',
