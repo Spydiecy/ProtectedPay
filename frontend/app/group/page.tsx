@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { parseEther } from 'viem';
-import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
 import { useHistory, formatPOT } from '../hooks/useHistory';
 import { PROTECTED_PAY_ABI } from '../lib/abi';
-import { CONTRACT_ADDRESS, shortAddress } from '../lib/wagmi';
+import { shortAddress } from '../lib/wagmi';
+import { useContractAddress } from '../hooks/useContract';
 import WalletGuard from '../components/WalletGuard';
 import Toast, { ToastType } from '../components/Toast';
 import { Users, UserPlus, XCircle, RefreshCw, AtSign, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
@@ -23,15 +24,16 @@ const INPUT: React.CSSProperties = {
   border: '1px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box',
 };
 
-const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'ETH';
+const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
 
 // ── Inline expandable contributors for group history cards ───────────────────
 function AddrPill({ address, myAddr, client }: { address: string; myAddr: string; client: ReturnType<typeof usePublicClient> }) {
+  const contractAddress = useContractAddress();
   const [copied, setCopied] = useState(false);
   const [uname,  setUname]  = useState<string | null>(null);
   useEffect(() => {
     if (!address || !client) return;
-    client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [address as `0x${string}`] })
+    client.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [address as `0x${string}`] })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then((u: any) => { if (u?.username) setUname(u.username); }).catch(() => {});
   }, [address, client]);
@@ -52,6 +54,7 @@ function GroupContributorsInline({ groupId, creator, recipient, amountPerPerson,
   amountPerPerson: string; numParticipants: string; remarks: string;
   myAddr: string; client: ReturnType<typeof usePublicClient>;
 }) {
+  const contractAddress = useContractAddress();
   const [open,         setOpen]         = useState(false);
   const [contributors, setContributors] = useState<string[] | null>(null);
   const [fetching,     setFetching]     = useState(false);
@@ -60,7 +63,7 @@ function GroupContributorsInline({ groupId, creator, recipient, amountPerPerson,
     if (contributors !== null || !client) return;
     setFetching(true);
     try {
-      const addrs = await client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getGroupContributors', args: [BigInt(groupId)] }) as string[];
+      const addrs = await client.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'getGroupContributors', args: [BigInt(groupId)] }) as string[];
       setContributors(addrs);
     } catch { setContributors([]); }
     finally { setFetching(false); }
@@ -120,6 +123,8 @@ function GroupContributorsInline({ groupId, creator, recipient, amountPerPerson,
 }
 
 function GroupContent() {
+  const contractAddress = useContractAddress();
+  const chainId = useChainId();
   const { address } = useAccount();
   const client = usePublicClient();
   const { writeContractAsync } = useWriteContract();
@@ -141,7 +146,7 @@ function GroupContent() {
   const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
   const t = (msg: string, type: ToastType) => setToast({ msg, type });
 
-  useEffect(() => { refresh(); }, [address]); // eslint-disable-line
+  useEffect(() => { refresh(); }, [address, chainId]); // eslint-disable-line
   useEffect(() => { if (isSuccess) { t('Success!', 'success'); refresh(); setTxHash(undefined); } }, [isSuccess]); // eslint-disable-line
 
   const perPerson = totalAmount && participants && parseInt(participants) >= 2
@@ -151,7 +156,7 @@ function GroupContent() {
     if (!val || (val.startsWith('0x') && val.length === 42)) { setResolvedRecipient(''); return; }
     const uname = val.startsWith('@') ? val.slice(1) : val;
     try {
-      const addr = await client?.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'resolveUsername', args: [uname] }) as `0x${string}` | null;
+      const addr = await client?.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'resolveUsername', args: [uname] }) as `0x${string}` | null;
       if (addr && addr !== '0x0000000000000000000000000000000000000000') { setResolvedRecipient(addr); t(`Resolved @${uname}`, 'success'); }
       else { setResolvedRecipient(''); t(`@${uname} not found`, 'error'); }
     } catch { setResolvedRecipient(''); }
@@ -166,7 +171,7 @@ function GroupContent() {
       const totalWei = parseEther(totalAmount);
       const perWei   = parseEther(perPerson);
       const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI,
+        address: contractAddress, abi: PROTECTED_PAY_ABI,
         functionName: 'createGroupPayment',
         args: [effectiveRecipient, totalWei, parseInt(participants)as unknown as number, remarks],
         value: perWei,
@@ -181,7 +186,7 @@ function GroupContent() {
     if (!contributeId) return;
     setLookupLoading(true);
     try {
-      const data = await client?.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getGroupPayment', args: [BigInt(contributeId)] }) as GroupData;
+      const data = await client?.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'getGroupPayment', args: [BigInt(contributeId)] }) as GroupData;
       setContributeGroup(data?.creator !== '0x0000000000000000000000000000000000000000' ? data : null);
       if (!data || data.creator === '0x0000000000000000000000000000000000000000') t('Group not found', 'error');
     } catch { t('Lookup failed', 'error'); }
@@ -191,7 +196,7 @@ function GroupContent() {
   const handleContribute = useCallback(async (id: string, amtPerPerson: bigint) => {
     setLoading(true); t('Contributing…', 'loading');
     try {
-      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'contributeToGroup', args: [BigInt(id)], value: amtPerPerson });
+      const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'contributeToGroup', args: [BigInt(id)], value: amtPerPerson });
       setTxHash(hash); handleLookup();
     } catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
@@ -200,7 +205,7 @@ function GroupContent() {
   const handleCancel = useCallback(async (id: string) => {
     setLoading(true); t('Cancelling & refunding all…', 'loading');
     try {
-      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'cancelGroupPayment', args: [BigInt(id)] });
+      const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'cancelGroupPayment', args: [BigInt(id)] });
       setTxHash(hash);
     } catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
@@ -209,7 +214,7 @@ function GroupContent() {
   const handleWithdraw = useCallback(async (id: string) => {
     setLoading(true); t('Withdrawing contribution…', 'loading');
     try {
-      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'withdrawContribution', args: [BigInt(id)] });
+      const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'withdrawContribution', args: [BigInt(id)] });
       setTxHash(hash);
     } catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
@@ -221,7 +226,7 @@ function GroupContent() {
   return (
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>ProtectedPay</p>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>HashKey Pay</p>
         <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-1px' }}>Group Split</h1>
         <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginTop: 4 }}>Crowdfund a payment with multiple contributors</p>
       </div>

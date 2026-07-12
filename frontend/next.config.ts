@@ -1,15 +1,9 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
   turbopack: {
-    root: __dirname,
-  },
-  webpack: (config) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false, net: false, tls: false,
-    };
-    return config;
+    root: path.resolve(__dirname),
   },
 };
 

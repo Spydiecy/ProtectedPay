@@ -5,14 +5,15 @@ import { parseEther, formatEther } from 'viem';
 import { useParams } from 'next/navigation';
 import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { PROTECTED_PAY_ABI } from '../../lib/abi';
-import { CONTRACT_ADDRESS, shortAddress } from '../../lib/wagmi';
+import { shortAddress } from '../../lib/wagmi';
+import { useContractAddress } from '../../hooks/useContract';
 import Toast, { ToastType } from '../../components/Toast';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { generateInvoicePDF } from '../../lib/invoice';
 import { CheckCircle2, Ban, ArrowRight, ExternalLink, Shield, Copy, Check, Download, Share2 } from 'lucide-react';
 
-const NATIVE   = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'QIE';
-const EXPLORER = 'https://testnet.qie.digital';
+const NATIVE   = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
+const EXPLORER = 'https://testnet-explorer.hsk.xyz';
 
 interface LinkData {
   linkId: string;
@@ -65,9 +66,9 @@ function PageHeader() {
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10, padding: '14px 24px' }}>
       <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-        <img src="/logo.png" alt="ProtectedPay" style={{ width: 26, height: 26, borderRadius: 7, objectFit: 'cover' }} />
+        <img src="/logo.png" alt="HashKey Pay" style={{ width: 26, height: 26, borderRadius: 7, objectFit: 'cover' }} />
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground-muted)', letterSpacing: '-0.2px' }}>
-          Protected<span style={{ color: 'var(--primary)' }}>Pay</span>
+          HashKey<span style={{ color: 'var(--primary)' }}>Pay</span>
         </span>
       </a>
     </div>
@@ -81,6 +82,7 @@ export default function PayPage() {
   const { address, isConnected } = useAccount();
   const client = usePublicClient();
   const { writeContractAsync } = useWriteContract();
+  const contractAddress = useContractAddress();
 
   const [link,        setLink]        = useState<LinkData | null>(null);
   const [notFound,    setNotFound]    = useState(false);
@@ -103,7 +105,7 @@ export default function PayPage() {
     setFetching(true);
     try {
       const data = await client.readContract({
-        address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI,
+        address: contractAddress, abi: PROTECTED_PAY_ABI,
         functionName: 'getPaymentLink', args: [linkId as `0x${string}`],
       }) as LinkData;
       if (!data || data.creator === '0x0000000000000000000000000000000000000000') {
@@ -112,7 +114,7 @@ export default function PayPage() {
         setLink(data);
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const user = await client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [data.creator as `0x${string}`] }) as any;
+          const user = await client.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [data.creator as `0x${string}`] }) as any;
           if (user?.username) setCreatorName(user.username);
         } catch { /* no username */ }
       }
@@ -139,7 +141,7 @@ export default function PayPage() {
     setLoading(true); t('Submitting…', 'loading');
     try {
       const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI,
+        address: contractAddress, abi: PROTECTED_PAY_ABI,
         functionName: 'payLink', args: [linkId as `0x${string}`, remarks], value,
       });
       setTxHash(hash);
@@ -207,7 +209,7 @@ export default function PayPage() {
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', marginBottom: 8 }}>Link Not Found</h1>
             <p style={{ fontSize: 13, color: 'var(--foreground-muted)', lineHeight: 1.6, marginBottom: 24 }}>This payment link doesn&apos;t exist or has been removed.</p>
             <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', borderRadius: 999, background: 'var(--primary)', color: 'var(--primary-fg)', textDecoration: 'none', fontWeight: 700, fontSize: 14 }}>
-              Go to ProtectedPay
+              Go to HashKey Pay
             </a>
           </div>
         </div>
@@ -295,7 +297,7 @@ export default function PayPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <Shield size={11} color="var(--foreground-subtle)" />
-              <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Secured by ProtectedPay · QIE Network</span>
+              <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Secured by HashKey Pay · HashKey Chain</span>
             </div>
           </div>
         </div>
@@ -410,7 +412,7 @@ export default function PayPage() {
           {/* Trust line */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Shield size={11} color="var(--foreground-subtle)" />
-            <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Secured by ProtectedPay · QIE Network</span>
+            <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Secured by HashKey Pay · HashKey Chain</span>
           </div>
         </div>
       </div>

@@ -5,8 +5,8 @@ import Navbar from './components/Navbar';
 import SmoothScroll from './components/SmoothScroll';
 
 export const metadata: Metadata = {
-  title: 'ProtectedPay — Trustless Payments on QIE Testnet',
-  description: 'Protected transfers, group splits, and batch payments secured by EVM smart contracts on QIE Testnet.',
+  title: 'HashKey Pay — Trustless Payments on HashKey Chain',
+  description: 'Protected transfers, group splits, and batch payments secured by EVM smart contracts on HashKey Chain.',
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <body>
         <Providers>
           <Navbar />

@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { formatEther } from 'viem';
-import { useAccount, usePublicClient } from 'wagmi';
+import { useAccount, usePublicClient, useChainId } from 'wagmi';
 import { useHistory, formatPOT, EscrowRecord, GroupRecord, BatchRecord, TokenEscrowRecord, PaymentLinkRecord } from '../hooks/useHistory';
 import { PROTECTED_PAY_ABI, ESCROW_STATUS_LABEL, GROUP_STATUS_LABEL } from '../lib/abi';
-import { CONTRACT_ADDRESS, shortAddress } from '../lib/wagmi';
+import { shortAddress } from '../lib/wagmi';
+import { useContractAddress } from '../hooks/useContract';
 import WalletGuard from '../components/WalletGuard';
 import {
   RefreshCw, ArrowUpRight, ArrowDownLeft, Users, Zap, History,
@@ -13,8 +14,8 @@ import {
 } from 'lucide-react';
 
 type HistoryTab = 'all' | 'protected' | 'group' | 'batch' | 'links';
-const NATIVE   = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'QIE';
-const EXPLORER = 'https://testnet.qie.digital';
+const NATIVE   = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
+const EXPLORER = 'https://testnet-explorer.hsk.xyz';
 
 function fmtDate(ts: string | undefined) {
   if (!ts || ts === '0') return null;
@@ -22,10 +23,11 @@ function fmtDate(ts: string | undefined) {
 }
 
 // ── Reusable: copyable address with optional username ────────────────────────
-function AddrChip({ address, username, client }: {
+function AddrChip({ address, username, client, contractAddress }: {
   address: string;
   username?: string | null;
   client: ReturnType<typeof usePublicClient>;
+  contractAddress: `0x${string}`;
 }) {
   const [copied,   setCopied]   = useState(false);
   const [uname,    setUname]    = useState<string | null>(username ?? null);
@@ -36,7 +38,7 @@ function AddrChip({ address, username, client }: {
     if (resolved || !address || !client) return;
     setResolved(true);
     client.readContract({
-      address: CONTRACT_ADDRESS,
+      address: contractAddress,
       abi: PROTECTED_PAY_ABI,
       functionName: 'getUser',
       args: [address as `0x${string}`],
@@ -73,9 +75,10 @@ function AddrChip({ address, username, client }: {
 }
 
 // ── Expandable batch detail ──────────────────────────────────────────────────
-function BatchDetail({ b, client }: {
+function BatchDetail({ b, client, contractAddress }: {
   b: BatchRecord;
   client: ReturnType<typeof usePublicClient>;
+  contractAddress: `0x${string}`;
 }) {
   const [open,       setOpen]       = useState(false);
   const [recipients, setRecipients] = useState<{ account: string; amount: bigint }[] | null>(null);
@@ -89,7 +92,7 @@ function BatchDetail({ b, client }: {
       const items = await Promise.all(
         Array.from({ length: count }, (_, i) =>
           client?.readContract({
-            address: CONTRACT_ADDRESS,
+            address: contractAddress,
             abi: PROTECTED_PAY_ABI,
             functionName: 'getBatchRecipient',
             args: [BigInt(b.id), i as unknown as number],
@@ -150,7 +153,7 @@ function BatchDetail({ b, client }: {
                     <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)', fontFamily: 'monospace', minWidth: 18 }}>
                       {String(i + 1).padStart(2, '0')}
                     </span>
-                    <AddrChip address={r.account} client={client} />
+                    <AddrChip address={r.account} client={client} contractAddress={contractAddress} />
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>
                     {parseFloat(formatEther(r.amount)).toFixed(6)} {NATIVE}
@@ -168,10 +171,11 @@ function BatchDetail({ b, client }: {
 }
 
 // ── Expandable group detail ──────────────────────────────────────────────────
-function GroupDetail({ g, myAddr, client }: {
+function GroupDetail({ g, myAddr, client, contractAddress }: {
   g: GroupRecord;
   myAddr: string;
   client: ReturnType<typeof usePublicClient>;
+  contractAddress: `0x${string}`;
 }) {
   const [open,         setOpen]         = useState(false);
   const [contributors, setContributors] = useState<string[] | null>(null);
@@ -190,7 +194,7 @@ function GroupDetail({ g, myAddr, client }: {
     setFetching(true);
     try {
       const addrs = await client.readContract({
-        address: CONTRACT_ADDRESS,
+        address: contractAddress,
         abi: PROTECTED_PAY_ABI,
         functionName: 'getGroupContributors',
         args: [BigInt(g.id)],
@@ -252,7 +256,7 @@ function GroupDetail({ g, myAddr, client }: {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 9, background: 'var(--surface-card)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)', letterSpacing: 0.5, minWidth: 60 }}>CREATOR</span>
-              <AddrChip address={g.creator} client={client} />
+              <AddrChip address={g.creator} client={client} contractAddress={contractAddress} />
             </div>
             {g.creator.toLowerCase() === myAddr && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)' }}>YOU</span>}
           </div>
@@ -261,7 +265,7 @@ function GroupDetail({ g, myAddr, client }: {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 9, background: 'var(--surface-card)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', letterSpacing: 0.5, minWidth: 60 }}>RECEIVES</span>
-              <AddrChip address={g.recipient} client={client} />
+              <AddrChip address={g.recipient} client={client} contractAddress={contractAddress} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>{formatPOT(g.totalAmount)}</span>
@@ -286,7 +290,7 @@ function GroupDetail({ g, myAddr, client }: {
                     <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)', fontFamily: 'monospace', minWidth: 18 }}>
                       {String(i + 1).padStart(2, '0')}
                     </span>
-                    <AddrChip address={addr} client={client} />
+                    <AddrChip address={addr} client={client} contractAddress={contractAddress} />
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground-muted)' }}>{formatPOT(g.amountPerPerson)}</span>
@@ -325,12 +329,14 @@ function GroupDetail({ g, myAddr, client }: {
 
 // ── Main history page ────────────────────────────────────────────────────────
 function HistoryContent() {
+  const contractAddress = useContractAddress();
+  const chainId = useChainId();
   const { address } = useAccount();
   const client = usePublicClient();
   const { escrows, tokenEscrows, groups, batches, paymentLinks, loading, refresh } = useHistory();
   const [tab, setTab] = useState<HistoryTab>('all');
 
-  useEffect(() => { refresh(); }, [address]); // eslint-disable-line
+  useEffect(() => { refresh(); }, [address, chainId]); // eslint-disable-line
 
   const myAddr = (address ?? '').toLowerCase();
 
@@ -346,7 +352,7 @@ function HistoryContent() {
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>ProtectedPay</p>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>HashKey Pay</p>
           <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-1px' }}>Transaction History</h1>
           <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginTop: 4 }}>All your on-chain activity in one place</p>
         </div>
@@ -401,7 +407,7 @@ function HistoryContent() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: e.remarks ? 6 : 0 }}>
                       <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>{isSender ? '→ to' : '← from'}</span>
-                      <AddrChip address={counterAddr} client={client} />
+                      <AddrChip address={counterAddr} client={client} contractAddress={contractAddress} />
                     </div>
                     {e.remarks && <p style={{ fontSize: 11, color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>&ldquo;{e.remarks}&rdquo;</p>}
                   </div>
@@ -435,11 +441,11 @@ function HistoryContent() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                       <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Token</span>
-                      <AddrChip address={e.token} client={client} />
+                      <AddrChip address={e.token} client={client} contractAddress={contractAddress} />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: e.remarks ? 6 : 0 }}>
                       <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>{isSender ? '→ to' : '← from'}</span>
-                      <AddrChip address={counterAddr} client={client} />
+                      <AddrChip address={counterAddr} client={client} contractAddress={contractAddress} />
                     </div>
                     {e.remarks && <p style={{ fontSize: 11, color: 'var(--foreground-subtle)', fontStyle: 'italic' }}>&ldquo;{e.remarks}&rdquo;</p>}
                   </div>
@@ -463,7 +469,7 @@ function HistoryContent() {
               </div>
             )}
             {groups.map((g: GroupRecord) => (
-              <GroupDetail key={g.id} g={g} myAddr={myAddr} client={client} />
+              <GroupDetail key={g.id} g={g} myAddr={myAddr} client={client} contractAddress={contractAddress} />
             ))}
           </div>
         )}
@@ -478,7 +484,7 @@ function HistoryContent() {
               </div>
             )}
             {batches.map((b: BatchRecord) => (
-              <BatchDetail key={b.id} b={b} client={client} />
+              <BatchDetail key={b.id} b={b} client={client} contractAddress={contractAddress} />
             ))}
           </div>
         )}
@@ -514,7 +520,7 @@ function HistoryContent() {
                     {isPaid && l.paidBy && l.paidBy !== '0x0000000000000000000000000000000000000000' && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Paid by</span>
-                        <AddrChip address={l.paidBy} client={client} />
+                        <AddrChip address={l.paidBy} client={client} contractAddress={contractAddress} />
                       </div>
                     )}
                   </div>

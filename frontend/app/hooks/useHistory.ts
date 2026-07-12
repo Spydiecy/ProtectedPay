@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useAccount, useBalance, usePublicClient } from 'wagmi';
+import { useState, useCallback, useEffect } from 'react';
+import { useAccount, useBalance, usePublicClient, useChainId } from 'wagmi';
 import { PROTECTED_PAY_ABI, ESCROW_STATUS_LABEL, GROUP_STATUS_LABEL } from '../lib/abi';
-import { CONTRACT_ADDRESS, formatNative } from '../lib/wagmi';
+import { getContractAddress, formatNative } from '../lib/wagmi';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface EscrowRecord {
@@ -70,14 +70,14 @@ export const LINK_STATUS_LABEL: Record<number, string> = {
 
 // ── Format helpers ─────────────────────────────────────────────────────────────
 export function formatPOT(raw: string): string {
-  if (!raw || raw === '0') return '0 QIE';
+  if (!raw || raw === '0') return '0 HSK';
   try {
     const wei = BigInt(raw.replace(/,/g, ''));
     const formatted = formatNative(wei);
-    const symbol = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'QIE';
+    const symbol = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
     return `${formatted} ${symbol}`;
   } catch {
-    return '— QIE';
+    return '— HSK';
   }
 }
 
@@ -160,6 +160,7 @@ function mapPaymentLink(l: any): PaymentLinkRecord {
 
 export function useHistory() {
   const { address } = useAccount();
+  const chainId     = useChainId();
   const client      = usePublicClient();
   const { data: balanceData, refetch: refetchBalance } = useBalance({ address });
 
@@ -173,15 +174,16 @@ export function useHistory() {
 
   const refresh = useCallback(async () => {
     if (!address || !client) return;
+    const contractAddress = getContractAddress(chainId);
     setLoading(true);
     try {
       const [bal, rawEscrows, rawTokenEscrows, rawGroups, rawBatches, rawLinks] = await Promise.all([
         refetchBalance(),
-        client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUserEscrows', args: [address] }),
-        client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUserTokenEscrows', args: [address] }),
-        client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUserGroups', args: [address] }),
-        client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUserBatches', args: [address] }),
-        client.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'getUserPaymentLinks', args: [address] }),
+        client.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'getUserEscrows', args: [address] }),
+        client.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'getUserTokenEscrows', args: [address] }),
+        client.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'getUserGroups', args: [address] }),
+        client.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'getUserBatches', args: [address] }),
+        client.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'getUserPaymentLinks', args: [address] }),
       ]);
 
       if (bal.data) setBalance(String(bal.data.value));
@@ -195,7 +197,21 @@ export function useHistory() {
     } finally {
       setLoading(false);
     }
-  }, [address, client, refetchBalance]);
+  }, [address, chainId, client, refetchBalance]);
+
+  // ── Auto-refresh when chain or address changes ────────────────────────────
+  useEffect(() => {
+    // Clear stale data immediately so old chain's data doesn't show
+    setEscrows([]);
+    setTokenEscrows([]);
+    setGroups([]);
+    setBatches([]);
+    setPaymentLinks([]);
+    setBalance(null);
+    // Fetch fresh data for the new chain
+    if (address && client) refresh();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chainId, address]);
 
   const formattedBalance = balance ? formatPOT(balance)
     : balanceData ? `${formatNative(balanceData.value)} ${balanceData.symbol}`

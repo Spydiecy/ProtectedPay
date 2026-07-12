@@ -3,7 +3,7 @@
 import { useAccount, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { X, Wallet, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
-import { qieTestnet, shortAddress } from '../lib/wagmi';
+import { hashkeyTestnet, shortAddress } from '../lib/wagmi';
 
 interface WalletModalProps {
   onClose: () => void;
@@ -16,10 +16,10 @@ export default function WalletModal({ onClose }: WalletModalProps) {
   const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
 
-  const isWrongNetwork = isConnected && chainId !== qieTestnet.id;
+  const isWrongNetwork = isConnected && chainId !== hashkeyTestnet.id;
 
   const handleConnect = () => {
-    onClose(); // close our overlay first
+    onClose();
     openConnectModal?.();
   };
 
@@ -53,8 +53,8 @@ export default function WalletModal({ onClose }: WalletModalProps) {
             borderBottom: '1px solid var(--border)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <img src="/chain/qie.png" alt="QIE"
-                style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }}
+              <img src="/logo.png" alt="HashKey Pay"
+                style={{ width: 22, height: 22, borderRadius: 6, objectFit: 'cover' }}
                 onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
               />
               <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)', letterSpacing: '-0.3px' }}>
@@ -67,7 +67,7 @@ export default function WalletModal({ onClose }: WalletModalProps) {
                 color: 'var(--primary)',
                 border: '1px solid rgba(45,212,191,0.25)',
               }}>
-                QIE Testnet
+                HashKey Chain
               </span>
             </div>
             <button onClick={onClose} style={{
@@ -93,10 +93,10 @@ export default function WalletModal({ onClose }: WalletModalProps) {
                 <AlertCircle size={16} color="var(--warning)" style={{ flexShrink: 0, marginTop: 1 }} />
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--warning)', marginBottom: 8 }}>
-                    Wrong network — switch to QIE Testnet
+                    Wrong network — switch to HashKey Chain
                   </p>
                   <button
-                    onClick={() => switchChain({ chainId: qieTestnet.id })}
+                    onClick={() => switchChain({ chainId: hashkeyTestnet.id })}
                     disabled={isSwitching}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6,
@@ -106,7 +106,7 @@ export default function WalletModal({ onClose }: WalletModalProps) {
                     }}
                   >
                     {isSwitching && <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} />}
-                    Switch to QIE Testnet
+                    Switch to HashKey Testnet
                   </button>
                 </div>
               </div>
@@ -132,7 +132,7 @@ export default function WalletModal({ onClose }: WalletModalProps) {
                       {activeConnector?.name || 'Wallet'}
                     </p>
                     <p style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--foreground-muted)' }}>
-                      {address}
+                      {shortAddress(address)}
                     </p>
                   </div>
                 </div>
@@ -149,10 +149,10 @@ export default function WalletModal({ onClose }: WalletModalProps) {
                 </button>
               </div>
             ) : (
-              /* Not connected — open RainbowKit modal */
+              /* Not connected */
               <div>
                 <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginBottom: 20, lineHeight: 1.65 }}>
-                  Connect your EVM wallet to use ProtectedPay on QIE Testnet. Supports MetaMask, Rainbow, Coinbase Wallet, WalletConnect, and more.
+                  Connect your EVM wallet to use HashKey Pay on HashKey Chain. Supports MetaMask, Rainbow, Coinbase Wallet, WalletConnect, and more.
                 </p>
                 <button
                   onClick={handleConnect}
@@ -167,8 +167,8 @@ export default function WalletModal({ onClose }: WalletModalProps) {
                   <Wallet size={17} /> Choose Wallet
                 </button>
                 <p style={{ fontSize: 12, color: 'var(--foreground-subtle)', textAlign: 'center' }}>
-                  New to QIE?{' '}
-                  <a href="https://testnet.qie.digital" target="_blank" rel="noopener noreferrer"
+                  New to HashKey Chain?{' '}
+                  <a href="https://testnet-explorer.hsk.xyz" target="_blank" rel="noopener noreferrer"
                     style={{ color: 'var(--primary)', textDecoration: 'none' }}>
                     View explorer ↗
                   </a>

@@ -2,11 +2,11 @@
 
 import { useChat } from '@ai-sdk/react';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
 import { usePathname } from 'next/navigation';
 import { parseEther } from 'viem';
 import { PROTECTED_PAY_ABI } from '../lib/abi';
-import { CONTRACT_ADDRESS } from '../lib/wagmi';
+import { getContractAddress } from '../lib/wagmi';
 import { MessageCircle, X, Send, Bot, User, Loader2, Sparkles, ChevronDown, Zap, CheckCircle2 } from 'lucide-react';
 
 interface PendingAction {
@@ -73,13 +73,13 @@ function extractAction(invocations: any[]): PendingAction | null {
     if (inv.toolName === 'buildEscrow' && r.resolvedAddress && r.amount) {
       const wei = (() => { try { return parseEther(r.amount); } catch { return null; } })();
       if (!wei) continue;
-      return { type: 'createEscrow', params: { recipient: r.resolvedAddress, remarks: r.remarks ?? '' }, label: `Send ${r.amount} QIE → ${r.resolvedAddress.slice(0, 8)}…`, value: wei };
+      return { type: 'createEscrow', params: { recipient: r.resolvedAddress, remarks: r.remarks ?? '' }, label: `Send ${r.amount} HSK → ${r.resolvedAddress.slice(0, 8)}…`, value: wei };
     }
     if (inv.toolName === 'buildGroupPayment' && r.resolvedAddress && r.totalAmount) {
       const perWei   = (() => { try { return parseEther(r.perPerson); }   catch { return null; } })();
       const totalWei = (() => { try { return parseEther(r.totalAmount); } catch { return null; } })();
       if (!perWei || !totalWei) continue;
-      return { type: 'createGroupPayment', params: { recipient: r.resolvedAddress, totalAmount: totalWei, participants: r.participants, remarks: r.remarks ?? '' }, label: `Create Group: ${r.totalAmount} QIE ÷ ${r.participants}`, value: perWei };
+      return { type: 'createGroupPayment', params: { recipient: r.resolvedAddress, totalAmount: totalWei, participants: r.participants, remarks: r.remarks ?? '' }, label: `Create Group: ${r.totalAmount} HSK ÷ ${r.participants}`, value: perWei };
     }
     if (inv.toolName === 'buildPaymentLink' && r.description !== undefined) {
       const weiAmt = r.amount === '0' ? 0n : (() => { try { return parseEther(r.amount); } catch { return 0n; } })();
@@ -89,13 +89,13 @@ function extractAction(invocations: any[]): PendingAction | null {
       const addrs   = r.resolvedRecipients.map((x: { address: string }) => x.address);
       const amounts = r.resolvedRecipients.map((x: { amount: string }) => { try { return parseEther(x.amount); } catch { return 0n; } });
       const total   = amounts.reduce((s: bigint, a: bigint) => s + a, 0n);
-      return { type: 'batchTransfer', params: { recipients: addrs, amounts, remarks: r.remarks }, label: `Batch to ${addrs.length} recipients · ${r.total} QIE`, value: total };
+      return { type: 'batchTransfer', params: { recipients: addrs, amounts, remarks: r.remarks }, label: `Batch to ${addrs.length} recipients · ${r.total} HSK`, value: total };
     }
     if (inv.toolName === 'claimEscrow'   && r.escrowId) return { type: 'claimEscrow',   params: { id: r.escrowId },          label: `Claim Escrow #${r.escrowId}`,   value: undefined };
     if (inv.toolName === 'refundEscrow'  && r.escrowId) return { type: 'refundEscrow',  params: { id: r.escrowId },          label: `Refund Escrow #${r.escrowId}`,  value: undefined };
     if (inv.toolName === 'contributeToGroup' && r.groupId) {
       const perWei = r.amountPerPerson ? BigInt(r.amountPerPerson) : undefined;
-      return { type: 'contributeToGroup', params: { groupId: r.groupId }, label: `Contribute to Group #${r.groupId}${r.perPersonDisplay ? ` · ${r.perPersonDisplay} QIE` : ''}`, value: perWei };
+      return { type: 'contributeToGroup', params: { groupId: r.groupId }, label: `Contribute to Group #${r.groupId}${r.perPersonDisplay ? ` · ${r.perPersonDisplay} HSK` : ''}`, value: perWei };
     }
     if (inv.toolName === 'buildRegisterUsername' && r.username) {
       return { type: 'registerUsername', params: { username: r.username }, label: `Register @${r.username}`, value: undefined };
@@ -107,6 +107,7 @@ function extractAction(invocations: any[]): PendingAction | null {
 // ── Transaction button ────────────────────────────────────────────────────────
 function TxButton({ action, onDone }: { action: PendingAction; onDone: (msg: string) => void }) {
   const { writeContractAsync } = useWriteContract();
+  const chainId = useChainId();
   const [txHash,  setTxHash]   = useState<`0x${string}` | undefined>();
   const [phase,   setPhase]    = useState<'idle' | 'wallet' | 'mining' | 'done' | 'error'>('idle');
   const [errMsg,  setErrMsg]   = useState('');
@@ -121,17 +122,18 @@ function TxButton({ action, onDone }: { action: PendingAction; onDone: (msg: str
   }, [isSuccess, phase, action.label, onDone]);
 
   const execute = useCallback(async () => {
+    const contractAddress = getContractAddress(chainId);
     setPhase('wallet');
     try {
       let hash: `0x${string}`;
-      if      (action.type === 'createEscrow')      hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'createEscrow',      args: [action.params.recipient, action.params.remarks],                                                          value: action.value });
-      else if (action.type === 'createGroupPayment') hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'createGroupPayment', args: [action.params.recipient, action.params.totalAmount, action.params.participants, action.params.remarks], value: action.value });
-      else if (action.type === 'createPaymentLink')  hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'createPaymentLink',  args: [action.params.amount, action.params.description] });
-      else if (action.type === 'batchTransfer')      hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'batchTransfer',      args: [action.params.recipients, action.params.amounts, action.params.remarks],                              value: action.value });
-      else if (action.type === 'claimEscrow')        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'claimEscrow',        args: [BigInt(action.params.id)] });
-      else if (action.type === 'refundEscrow')       hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'refundEscrow',       args: [BigInt(action.params.id)] });
-      else if (action.type === 'contributeToGroup')  hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'contributeToGroup',  args: [BigInt(action.params.groupId)],                                                                        value: action.value ?? 0n });
-      else if (action.type === 'registerUsername')   hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'registerUsername',   args: [action.params.username] });
+      if      (action.type === 'createEscrow')      hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'createEscrow',      args: [action.params.recipient, action.params.remarks],                                                          value: action.value });
+      else if (action.type === 'createGroupPayment') hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'createGroupPayment', args: [action.params.recipient, action.params.totalAmount, action.params.participants, action.params.remarks], value: action.value });
+      else if (action.type === 'createPaymentLink')  hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'createPaymentLink',  args: [action.params.amount, action.params.description] });
+      else if (action.type === 'batchTransfer')      hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'batchTransfer',      args: [action.params.recipients, action.params.amounts, action.params.remarks],                              value: action.value });
+      else if (action.type === 'claimEscrow')        hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'claimEscrow',        args: [BigInt(action.params.id)] });
+      else if (action.type === 'refundEscrow')       hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'refundEscrow',       args: [BigInt(action.params.id)] });
+      else if (action.type === 'contributeToGroup')  hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'contributeToGroup',  args: [BigInt(action.params.groupId)],                                                                        value: action.value ?? 0n });
+      else if (action.type === 'registerUsername')   hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'registerUsername',   args: [action.params.username] });
       else { setPhase('idle'); return; }
       setTxHash(hash);
       setPhase('mining');
@@ -139,7 +141,7 @@ function TxButton({ action, onDone }: { action: PendingAction; onDone: (msg: str
       setErrMsg(e instanceof Error ? e.message.slice(0, 80) : 'Transaction rejected');
       setPhase('error');
     }
-  }, [action, writeContractAsync]);
+  }, [action, chainId, writeContractAsync]);
 
   if (phase === 'done') {
     return (
@@ -183,7 +185,7 @@ export default function AgentChat() {
     initialMessages: [{
       id: 'welcome',
       role: 'assistant',
-      content: `Hey! I'm **PayBot** 👋 — your ProtectedPay assistant.\n\nI can help you with:\n- Protected transfers (native & ERC-20 tokens)\n- Group split payments\n- Batch payments\n- Payment links & QR codes\n- Checking your transaction history\n\nJust ask in plain English — and I can trigger the wallet popup right here!`,
+      content: `Hey! I'm **PayBot** 👋 — your HashKey Pay assistant.\n\nI can help you with:\n- Protected transfers (native & ERC-20 tokens)\n- Group split payments\n- Batch payments\n- Payment links & QR codes\n- Checking your transaction history\n\nJust ask in plain English — and I can trigger the wallet popup right here!`,
     }],
   });
 
@@ -204,8 +206,8 @@ export default function AgentChat() {
 
   const QUICK = [
     'Check my history',
-    'Send 0.5 QIE to @spy as escrow',
-    'Create a payment link for 1 QIE',
+    'Send 0.5 HSK to @spy as escrow',
+    'Create a payment link for 1 HSK',
     'How does group split work?',
   ];
 
@@ -297,7 +299,7 @@ export default function AgentChat() {
           )}
 
           <form onSubmit={onSubmit} style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, flexShrink: 0, background: 'var(--surface-elevated)' }}>
-            <input value={input} onChange={handleInputChange} placeholder="Ask PayBot anything about ProtectedPay…" disabled={isLoading}
+            <input value={input} onChange={handleInputChange} placeholder="Ask PayBot anything about HashKey Pay…" disabled={isLoading}
               style={{ flex: 1, padding: '10px 16px', borderRadius: 999, background: 'var(--surface-card)', color: 'var(--foreground)', border: '1px solid var(--border)', fontSize: 13.5, outline: 'none', transition: 'border-color 0.15s' }}
               onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
               onBlur={e => (e.target.style.borderColor = 'var(--border)')}

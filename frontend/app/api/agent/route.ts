@@ -3,19 +3,19 @@ import { streamText, tool } from 'ai';
 import { z } from 'zod';
 import { createPublicClient, http, formatEther } from 'viem';
 
-const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xb2f4b7e37A8A4B63337eb7735FBB1Bca88A65E57') as `0x${string}`;
-const NATIVE_SYMBOL    = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'QIE';
+const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xF93132d75c20EfeD556EC2Bc5aC777750665D3a9') as `0x${string}`;
+const NATIVE_SYMBOL    = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
 
-const qieChain = {
-  id: 1983,
-  name: 'QIE Testnet',
-  nativeCurrency: { name: 'QIE', symbol: 'QIE', decimals: 18 },
-  rpcUrls: { default: { http: ['https://rpc1testnet.qie.digital'] } },
+const hashkeyTestnet = {
+  id: 133,
+  name: 'HashKey Chain Testnet',
+  nativeCurrency: { name: 'HSK', symbol: 'HSK', decimals: 18 },
+  rpcUrls: { default: { http: ['https://testnet.hsk.xyz'] } },
 } as const;
 
 const publicClient = createPublicClient({
-  chain: qieChain as never,
-  transport: http('https://rpc1testnet.qie.digital'),
+  chain: hashkeyTestnet as never,
+  transport: http('https://testnet.hsk.xyz'),
 });
 
 const ABI = [
@@ -36,19 +36,19 @@ const LINK_STATUS   = ['Active', 'Paid', 'Cancelled'];
 const mistral = createMistral({ apiKey: process.env.MISTRAL_API_KEY });
 
 // ── System prompt ─────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are PayBot, the friendly AI assistant built into ProtectedPay — a trustless on-chain payment platform on QIE Testnet (EVM, Chain ID 1983, native gas token: ${NATIVE_SYMBOL}).
+const SYSTEM_PROMPT = `You are PayBot, the friendly AI assistant built into HashKey Pay — a trustless on-chain payment platform on HashKey Chain (EVM, Chain ID 133 testnet / 177 mainnet, native gas token: ${NATIVE_SYMBOL}).
 
 ## Personality
-You ONLY discuss ProtectedPay and crypto payments. You are NOT a general-purpose AI.
-When asked about anything unrelated (weather, sports, news, recipes, general coding, etc.) give a short, warm, witty redirect back to ProtectedPay. Examples:
-- Weather → "Not sure about the weather, but ${NATIVE_SYMBOL} transfers on QIE are flowing smoothly! Want to send some?"
+You ONLY discuss HashKey Pay and crypto payments. You are NOT a general-purpose AI.
+When asked about anything unrelated (weather, sports, news, recipes, general coding, etc.) give a short, warm, witty redirect back to HashKey Pay. Examples:
+- Weather → "Not sure about the weather, but ${NATIVE_SYMBOL} transfers on HashKey Chain are flowing smoothly! Want to send some?"
 - Sports → "I'm more of a payments guy! How about sending a batch payment to your team after the game?"
 - Crypto prices → "I don't track prices, but I can check your ${NATIVE_SYMBOL} balance on-chain — want me to?"
-Never flatly refuse. Always steer back to ProtectedPay.
+Never flatly refuse. Always steer back to HashKey Pay.
 
 ## Navigation rules — CRITICAL
-- NEVER invent external URLs like "https://protectedpay.xyz/anything"
-- All navigation is within the ProtectedPay dashboard sidebar: **Protected Transfer**, **Group Split**, **Batch Payment**, **Payment Links**, **History**
+- NEVER invent external URLs like "https://hashkeypay.xyz/anything"
+- All navigation is within the HashKey Pay dashboard sidebar: **Protected Transfer**, **Group Split**, **Batch Payment**, **Payment Links**, **History**
 - Always say: "Go to the **Protected Transfer** tab in the dashboard" — never a URL
 
 ## Features

@@ -2,15 +2,16 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { parseUnits, formatUnits, parseEther, formatEther } from 'viem';
-import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
 import { useHistory, formatPOT, EscrowRecord, TokenEscrowRecord } from '../hooks/useHistory';
 import { PROTECTED_PAY_ABI, ESCROW_STATUS_LABEL } from '../lib/abi';
-import { CONTRACT_ADDRESS, shortAddress } from '../lib/wagmi';
+import { shortAddress } from '../lib/wagmi';
+import { useContractAddress } from '../hooks/useContract';
 import WalletGuard from '../components/WalletGuard';
 import Toast, { ToastType } from '../components/Toast';
 import { Lock, ArrowDownCircle, RotateCcw, RefreshCw, AtSign, Coins, CheckCircle2 } from 'lucide-react';
 
-const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'QIE';
+const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
 
 // Minimal ERC-20 ABI — just what we need
 const ERC20_ABI = [
@@ -30,6 +31,8 @@ const INPUT: React.CSSProperties = {
 interface TokenInfo { name: string; symbol: string; decimals: number; }
 
 function EscrowContent() {
+  const contractAddress = useContractAddress();
+  const chainId = useChainId();
   const { address } = useAccount();
   const client = usePublicClient();
   const { writeContractAsync } = useWriteContract();
@@ -57,7 +60,7 @@ function EscrowContent() {
   const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
   const t = (msg: string, type: ToastType) => setToast({ msg, type });
 
-  useEffect(() => { refresh(); }, [address]); // eslint-disable-line
+  useEffect(() => { refresh(); }, [address, chainId]); // eslint-disable-line
   useEffect(() => {
     if (isSuccess) {
       t('Done!', 'success');
@@ -79,7 +82,7 @@ function EscrowContent() {
     const uname = val.startsWith('@') ? val.slice(1) : val;
     if (!uname || uname.length < 2) return;
     try {
-      const addr = await client?.readContract({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'resolveUsername', args: [uname] }) as `0x${string}` | null;
+      const addr = await client?.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'resolveUsername', args: [uname] }) as `0x${string}` | null;
       if (addr && addr !== '0x0000000000000000000000000000000000000000') { setResolvedRecipient(addr); t(`Resolved @${uname}`, 'success'); }
       else { setResolvedRecipient(''); t(`@${uname} not found`, 'error'); }
     } catch { setResolvedRecipient(''); }
@@ -114,7 +117,7 @@ function EscrowContent() {
         address: tokenAddress as `0x${string}`,
         abi: ERC20_ABI,
         functionName: 'approve',
-        args: [CONTRACT_ADDRESS, amountWei],
+        args: [contractAddress, amountWei],
       });
       // Wait for the approval tx to be mined
       setTxHash(hash);
@@ -131,7 +134,7 @@ function EscrowContent() {
     setLoading(true); t('Submitting…', 'loading');
     try {
       const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI,
+        address: contractAddress, abi: PROTECTED_PAY_ABI,
         functionName: 'createEscrow',
         args: [effectiveRecipient, remarks],
         value: parseEther(amount),
@@ -152,7 +155,7 @@ function EscrowContent() {
     try {
       const amountWei = parseUnits(amount, tokenInfo.decimals);
       const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI,
+        address: contractAddress, abi: PROTECTED_PAY_ABI,
         functionName: 'createTokenEscrow',
         args: [tokenAddress as `0x${string}`, effectiveRecipient, amountWei, remarks],
       });
@@ -166,28 +169,28 @@ function EscrowContent() {
   // ── Claim / Refund ────────────────────────────────────────────────────────
   const handleClaim = useCallback(async (id: string) => {
     setLoading(true); t('Claiming…', 'loading');
-    try { const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'claimEscrow', args: [BigInt(id)] }); setTxHash(hash); }
+    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'claimEscrow', args: [BigInt(id)] }); setTxHash(hash); }
     catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
   }, [writeContractAsync]);
 
   const handleRefund = useCallback(async (id: string) => {
     setLoading(true); t('Refunding…', 'loading');
-    try { const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'refundEscrow', args: [BigInt(id)] }); setTxHash(hash); }
+    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'refundEscrow', args: [BigInt(id)] }); setTxHash(hash); }
     catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
   }, [writeContractAsync]);
 
   const handleClaimToken = useCallback(async (id: string) => {
     setLoading(true); t('Claiming tokens…', 'loading');
-    try { const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'claimTokenEscrow', args: [BigInt(id)] }); setTxHash(hash); }
+    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'claimTokenEscrow', args: [BigInt(id)] }); setTxHash(hash); }
     catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
   }, [writeContractAsync]);
 
   const handleRefundToken = useCallback(async (id: string) => {
     setLoading(true); t('Refunding tokens…', 'loading');
-    try { const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI, functionName: 'refundTokenEscrow', args: [BigInt(id)] }); setTxHash(hash); }
+    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'refundTokenEscrow', args: [BigInt(id)] }); setTxHash(hash); }
     catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
   }, [writeContractAsync]);
@@ -197,7 +200,7 @@ function EscrowContent() {
   return (
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>ProtectedPay</p>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>HashKey Pay</p>
         <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-1px' }}>Protected Transfer</h1>
         <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginTop: 4 }}>Lock funds until the recipient claims them</p>
       </div>

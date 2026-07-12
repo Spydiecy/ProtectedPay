@@ -27,14 +27,12 @@ const FEATURES = [
     num: '01', tag: 'PROTECTED', icon: Lock,
     title: 'Lock funds until the recipient claims.',
     desc: 'Create a protected transfer. Recipient claims when ready, or you refund if they don\'t. Zero trust required.',
-    stat: '100%', statLabel: 'NON-CUSTODIAL',
-    href: '/app',
+    stat: '100%', statLabel: 'NON-CUSTODIAL',    href: '/app',
   },
   {
     num: '02', tag: 'TOKEN ESCROW', icon: Coins,
-    title: 'Escrow any ERC-20 token, not just QIE.',
-    desc: 'Paste a token contract address, approve once, and lock any ERC-20 in the same trustless escrow flow. Claim or refund anytime.',
-    stat: 'ANY', statLabel: 'ERC-20',
+    title: 'Escrow any ERC-20 token, not just HSK.',
+    desc: 'Paste a token contract address, approve once, and lock any ERC-20 in the same trustless escrow flow. Claim or refund anytime.',    stat: 'ANY', statLabel: 'ERC-20',
     href: '/app',
   },
   {
@@ -75,7 +73,7 @@ const FEATURES = [
   {
     num: '08', tag: 'SECURITY', icon: ShieldCheck,
     title: 'Smart contracts, not promises.',
-    desc: 'Every payment is enforced by EVM code on QIE Testnet. No company holds your funds. No admin key. No one can freeze your account.',
+    desc: 'No admin key, no upgrade mechanism, no pause function. Every payment is enforced by EVM code on HashKey Chain.',
     stat: '0', statLabel: 'MIDDLEMEN',
     href: '/app',
   },
@@ -91,7 +89,7 @@ const FEATURES = [
 const FAQS = [
   {
     q: 'What is a protected transfer?',
-    a: 'A protected transfer locks your QIE in a smart contract on QIE Testnet. The recipient can claim at any time. If they don\'t, you refund yourself — no third party holds the funds, only the contract.',
+    a: 'A protected transfer locks your HSK in a smart contract on HashKey Chain. The recipient can claim at any time. If they don\'t, you refund yourself — no third party holds the funds, only the contract.',
   },
   {
     q: 'Can I escrow ERC-20 tokens too?',
@@ -111,23 +109,23 @@ const FAQS = [
   },
   {
     q: 'What is PayBot?',
-    a: 'PayBot is an AI assistant built into the dashboard. You can ask it in plain English — "send 1 QIE to @alice as escrow" — and it will trigger the wallet confirmation popup instantly. It can also check your history, resolve usernames, and explain any feature.',
+    a: 'PayBot is an AI assistant built into the dashboard. You can ask it in plain English — "send 1 HSK to @alice as escrow" — and it will trigger the wallet confirmation popup instantly. It can also check your history, resolve usernames, and explain any feature.',
   },
   {
     q: 'What is the username registry?',
-    a: 'You can register a unique on-chain username (3–30 characters). Others send to @yourname instead of your full address. It works across all ProtectedPay features and is fully on-chain — no off-chain indexer needed.',
+    a: 'You can register a unique on-chain username (3–30 characters). Others send to @yourname instead of your full address. It works across all HashKey Pay features and is fully on-chain — no off-chain indexer needed.',
   },
   {
     q: 'What token is used for gas?',
-    a: 'All transactions use QIE, the native token of QIE Testnet. You need a small amount of QIE in your wallet to pay for gas.',
+    a: 'All transactions use HSK, the native token of HashKey Chain. You need a small amount of HSK in your wallet to pay for gas.',
   },
   {
-    q: 'Is ProtectedPay non-custodial?',
-    a: 'Yes. ProtectedPay is a set of EVM smart contracts on QIE Network. No company or individual holds your funds. No admin key, no upgrade mechanism, no pause function. The contract code is open source and auditable by anyone.',
+    q: 'Is HashKey Pay non-custodial?',
+    a: 'Yes. HashKey Pay is a set of EVM smart contracts on HashKey Chain. No company or individual holds your funds. No admin key, no upgrade mechanism, no pause function. The contract code is open source and auditable by anyone.',
   },
   {
     q: 'Which wallets are supported?',
-    a: 'ProtectedPay works with any EVM-compatible wallet: MetaMask, Rainbow, Coinbase Wallet, Trust Wallet, and more. Switch to QIE Testnet and connect.',
+    a: 'HashKey Pay works with any EVM-compatible wallet: MetaMask, Rainbow, Coinbase Wallet, Trust Wallet, and more. Switch to HashKey Chain and connect.',
   },
 ];
 
@@ -191,14 +189,14 @@ export default function HomePage() {
                 background: 'var(--primary)',
                 display: 'inline-block',
               }} />
-              QIE Testnet · EVM Smart Contracts · QIE Gas
+              HashKey Chain · EVM Smart Contracts · HSK Gas
             </p>
             <h1 style={{ fontSize: 'clamp(44px, 7vw, 88px)', fontWeight: 800, lineHeight: 1.05, letterSpacing: '-3px', marginBottom: 28 }}>
               <span style={{ color: 'var(--foreground)', display: 'block' }}>Protected Payments</span>
-              <span className="text-gradient" style={{ display: 'block' }}>Built on QIE</span>
+              <span className="text-gradient" style={{ display: 'block' }}>Built on HashKey</span>
             </h1>
             <p style={{ fontSize: 18, lineHeight: 1.7, color: 'var(--foreground-muted)', maxWidth: 520, margin: '0 auto 40px' }}>
-              Trustless escrow, group crowdfunding, and batch transfers — secured by EVM smart contracts on QIE Testnet. No intermediaries. No trust required.
+              Trustless escrow, group crowdfunding, and batch transfers — secured by EVM smart contracts on HashKey Chain. No intermediaries. No trust required.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
               <Link href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '14px 28px', borderRadius: 999, background: 'var(--primary)', color: 'var(--primary-fg)', fontSize: 15, fontWeight: 700, textDecoration: 'none' }}
@@ -207,7 +205,7 @@ export default function HomePage() {
               >
                 Launch App <ArrowRight size={17} />
               </Link>
-              <a href="https://x.com/ProtectedPay_Qie" target="_blank" rel="noopener noreferrer"
+              <a href="https://x.com/hash_key_pay" target="_blank" rel="noopener noreferrer"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
                   padding: '14px 28px', borderRadius: 999,
@@ -245,13 +243,13 @@ export default function HomePage() {
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
             <img
               src="/hero-img-dark.png"
-              alt="ProtectedPay app"
+              alt="HashKey Pay app"
               className="hero-dark"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top left' }}
             />
             <img
               src="/hero-img-light.png"
-              alt="ProtectedPay app"
+              alt="HashKey Pay app"
               className="hero-light"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top left', position: 'absolute', top: 0, left: 0 }}
             />
@@ -263,13 +261,13 @@ export default function HomePage() {
       <section style={{ padding: '64px 0 72px', textAlign: 'center' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
           <span style={{ fontSize: 14, color: 'var(--foreground-subtle)', fontWeight: 400 }}>Powered by</span>
-          <img src="/chain/QIE.png" alt="QIE Network"
+          <img src="/chain/Hashkey.png" alt="HashKey Chain"
             style={{ height: 48, width: 'auto', objectFit: 'contain', display: 'block' }}
             onError={e => {
               const el = e.currentTarget as HTMLImageElement;
               el.style.display = 'none';
               const span = document.createElement('span');
-              span.textContent = 'QIE Network';
+              span.textContent = 'HashKey Chain';
               span.style.cssText = 'font-size:28px;font-weight:800;color:var(--foreground);letter-spacing:-1px';
               el.parentElement?.appendChild(span);
             }}
@@ -330,7 +328,7 @@ export default function HomePage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderTop: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>
             {[
-              { n: '01', title: 'Connect Wallet',    desc: 'Install MetaMask, Rainbow, or any EVM wallet. Connect to QIE Testnet in one click — the app will prompt you to add the chain.' },
+              { n: '01', title: 'Connect Wallet',    desc: 'Install MetaMask, Rainbow, or any EVM wallet. Connect to HashKey Chain in one click — the app will prompt you to add the chain.' },
               { n: '02', title: 'Register Username', desc: 'Claim a unique on-chain name. Others can send to @you instead of a long address.' },
               { n: '03', title: 'Send or Receive',   desc: 'Create an escrow, start a group payment, or batch-send to multiple addresses.' },
               { n: '04', title: 'Claim Funds',       desc: 'Recipients claim directly from the contract. Fully trustless. No middleman.' },
@@ -352,17 +350,17 @@ export default function HomePage() {
             <div>
               <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
-                Why builders choose ProtectedPay
+                Why builders choose HashKey Pay
               </p>
               <h2 style={{ fontSize: 'clamp(36px, 5vw, 60px)', fontWeight: 800, letterSpacing: '-2.5px', lineHeight: 1.05 }}>
-                <span style={{ color: 'var(--foreground)' }}>See where every QIE lands —</span>
+                <span style={{ color: 'var(--foreground)' }}>See where every HSK lands —</span>
                 <br />
                 <span style={{ color: 'var(--foreground-muted)' }}>before it leaves.</span>
               </h2>
             </div>
             <div>
               <p style={{ fontSize: 16, color: 'var(--foreground-muted)', lineHeight: 1.75, marginBottom: 32 }}>
-                On-chain transparency, post-transfer certainty. Every escrow, group payment, and batch transfer is recorded on QIE Network — visible to anyone, controlled by no one.
+                On-chain transparency, post-transfer certainty. Every escrow, group payment, and batch transfer is recorded on HashKey Chain — visible to anyone, controlled by no one.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {[
@@ -405,9 +403,9 @@ export default function HomePage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
             {/* Left — brand */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <img src="/logo.png" alt="ProtectedPay" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>ProtectedPay</span>
-              <span style={{ fontSize: 13, color: 'var(--foreground-subtle)', marginLeft: 4 }}>· EVM · QIE Testnet Hackathon S1</span>
+              <img src="/logo.png" alt="HashKey Pay" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>HashKeyPay</span>
+              <span style={{ fontSize: 13, color: 'var(--foreground-subtle)', marginLeft: 4 }}>· EVM · HashKey Chain</span>
             </div>
 
             {/* Right — nav links + social icons */}
@@ -429,7 +427,7 @@ export default function HomePage() {
               <span style={{ width: 1, height: 16, background: 'var(--border)' }} />
 
               {/* X / Twitter */}
-              <a href="https://x.com/ProtectedPay_Qie" target="_blank" rel="noopener noreferrer"
+              <a href="https://x.com/hash_key_pay" target="_blank" rel="noopener noreferrer"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 34, height: 34, borderRadius: 8,
@@ -450,7 +448,7 @@ export default function HomePage() {
               </a>
 
               {/* GitHub */}
-              <a href="https://github.com/Spydiecy/ProtectedPay_Qie" target="_blank" rel="noopener noreferrer"
+              <a href="https://github.com/Spydiecy/HashkeyPay" target="_blank" rel="noopener noreferrer"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 34, height: 34, borderRadius: 8,

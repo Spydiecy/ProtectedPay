@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { parseEther, formatEther } from 'viem';
-import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
 import { useHistory, formatPOT, BatchRecord } from '../hooks/useHistory';
 import { PROTECTED_PAY_ABI } from '../lib/abi';
-import { CONTRACT_ADDRESS } from '../lib/wagmi';
+import { getContractAddress } from '../lib/wagmi';
+import { useContractAddress } from '../hooks/useContract';
 import WalletGuard from '../components/WalletGuard';
 import Toast, { ToastType } from '../components/Toast';
 import { Zap, Plus, Trash2, RefreshCw, AtSign, ChevronDown, ChevronUp, Users } from 'lucide-react';
@@ -13,23 +14,23 @@ import { Zap, Plus, Trash2, RefreshCw, AtSign, ChevronDown, ChevronUp, Users } f
 interface Row { address: string; amount: string; resolvedFrom?: string; }
 interface BatchRecipientItem { account: string; amount: bigint; }
 
-const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'ETH';
+const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
 
 // ── Batch card with expandable recipients ─────────────────────────────────────
-function BatchCard({ b, client }: { b: BatchRecord; client: ReturnType<typeof usePublicClient> }) {
+function BatchCard({ b, client, contractAddress }: { b: BatchRecord; client: ReturnType<typeof usePublicClient>; contractAddress: `0x${string}` }) {
   const [open,       setOpen]       = useState(false);
   const [recipients, setRecipients] = useState<BatchRecipientItem[] | null>(null);
   const [loading,    setLoading]    = useState(false);
 
   const loadRecipients = useCallback(async () => {
-    if (recipients !== null) return; // already loaded
+    if (recipients !== null) return;
     setLoading(true);
     try {
       const count = Number(b.recipientCount);
       const items = await Promise.all(
         Array.from({ length: count }, (_, i) =>
           client?.readContract({
-            address: CONTRACT_ADDRESS,
+            address: contractAddress,
             abi: PROTECTED_PAY_ABI,
             functionName: 'getBatchRecipient',
             args: [BigInt(b.id), i as unknown as number],
@@ -43,7 +44,7 @@ function BatchCard({ b, client }: { b: BatchRecord; client: ReturnType<typeof us
     } finally {
       setLoading(false);
     }
-  }, [b.id, b.recipientCount, client, recipients]);
+  }, [b.id, b.recipientCount, client, contractAddress, recipients]);
 
   const toggle = () => {
     if (!open) loadRecipients();
@@ -129,6 +130,8 @@ function BatchCard({ b, client }: { b: BatchRecord; client: ReturnType<typeof us
 
 // ── Main batch content ────────────────────────────────────────────────────────
 function BatchContent() {
+  const contractAddress = useContractAddress();
+  const chainId = useChainId();
   const { address } = useAccount();
   const client = usePublicClient();
   const { writeContractAsync } = useWriteContract();
@@ -143,7 +146,7 @@ function BatchContent() {
   const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
   const t = (msg: string, type: ToastType) => setToast({ msg, type });
 
-  useEffect(() => { refresh(); }, [address]); // eslint-disable-line
+  useEffect(() => { refresh(); }, [address, chainId]); // eslint-disable-line
   useEffect(() => {
     if (isSuccess) { t('Batch complete!', 'success'); refresh(); setTxHash(undefined); }
   }, [isSuccess]); // eslint-disable-line
@@ -158,7 +161,7 @@ function BatchContent() {
     if (!uname) return;
     try {
       const addr = await client?.readContract({
-        address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI,
+        address: contractAddress, abi: PROTECTED_PAY_ABI,
         functionName: 'resolveUsername', args: [uname],
       }) as `0x${string}` | null;
       if (addr && addr !== '0x0000000000000000000000000000000000000000') {
@@ -181,7 +184,7 @@ function BatchContent() {
       if (!row.address.startsWith('0x') || row.address.length !== 42) {
         const uname = row.address.startsWith('@') ? row.address.slice(1) : row.address;
         const addr = await client?.readContract({
-          address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI,
+          address: contractAddress, abi: PROTECTED_PAY_ABI,
           functionName: 'resolveUsername', args: [uname],
         }) as `0x${string}` | null;
         if (addr && addr !== '0x0000000000000000000000000000000000000000') return { ...row, address: addr };
@@ -198,7 +201,7 @@ function BatchContent() {
     setLoading(true); t('Submitting batch…', 'loading');
     try {
       const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS, abi: PROTECTED_PAY_ABI,
+        address: contractAddress, abi: PROTECTED_PAY_ABI,
         functionName: 'batchTransfer', args: [addrs, amounts, remarks],
         value: totalWei,
       });
@@ -215,7 +218,7 @@ function BatchContent() {
   return (
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>ProtectedPay</p>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>HashKey Pay</p>
         <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-1px' }}>Batch Payment</h1>
         <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginTop: 4 }}>Send to multiple recipients in one atomic transaction</p>
       </div>
@@ -330,7 +333,7 @@ function BatchContent() {
               </div>
             ) : (
               batches.map((b: BatchRecord) => (
-                <BatchCard key={b.id} b={b} client={client} />
+                <BatchCard key={b.id} b={b} client={client} contractAddress={contractAddress} />
               ))
             )}
           </div>

@@ -4,7 +4,7 @@ import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, useTheme } from 'next-themes';
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
-import { wagmiConfig, qieTestnet } from '../lib/wagmi';
+import { wagmiConfig, hashkeyTestnet } from '../lib/wagmi';
 import '@rainbow-me/rainbowkit/styles.css';
 import { useEffect, useState } from 'react';
 
@@ -44,10 +44,10 @@ function RainbowKitWrapper({ children }: { children: React.ReactNode }) {
   return (
     <RainbowKitProvider
       theme={theme}
-      initialChain={qieTestnet.id}
+      initialChain={hashkeyTestnet.id}
       appInfo={{
-        appName: 'ProtectedPay',
-        learnMoreUrl: 'https://github.com/Spydiecy/ProtectedPay_Qie',
+        appName: 'HashKey Pay',
+        learnMoreUrl: 'https://github.com/Spydiecy/HashkeyPay',
       }}
     >
       {children}
