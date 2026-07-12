@@ -5,7 +5,7 @@ import { parseEther, formatEther } from 'viem';
 import { useParams } from 'next/navigation';
 import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { PROTECTED_PAY_ABI } from '../../lib/abi';
-import { shortAddress } from '../../lib/wagmi';
+import { shortAddress, hashkeyMainnet, hashkeyTestnet, CONTRACT_ADDRESSES, EXPLORER_URLS } from '../../lib/wagmi';
 import { useContractAddress } from '../../hooks/useContract';
 import Toast, { ToastType } from '../../components/Toast';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -13,7 +13,6 @@ import { generateInvoicePDF } from '../../lib/invoice';
 import { CheckCircle2, Ban, ArrowRight, ExternalLink, Shield, Copy, Check, Download, Share2 } from 'lucide-react';
 
 const NATIVE   = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
-const EXPLORER = 'https://testnet-explorer.hsk.xyz';
 
 interface LinkData {
   linkId: string;
@@ -97,29 +96,46 @@ export default function PayPage() {
   const [addrCopied,  setAddrCopied]  = useState(false);
   const [justPaid,    setJustPaid]    = useState(false); // true if this browser session did the payment
 
+  const [detectedChainId, setDetectedChainId] = useState<number | null>(null);
+
   const t = (msg: string, type: ToastType) => setToast({ msg, type });
   const { isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash: txHash });
 
   const loadLink = useCallback(async () => {
     if (!client || !linkId) return;
     setFetching(true);
-    try {
-      const data = await client.readContract({
-        address: contractAddress, abi: PROTECTED_PAY_ABI,
-        functionName: 'getPaymentLink', args: [linkId as `0x${string}`],
-      }) as LinkData;
-      if (!data || data.creator === '0x0000000000000000000000000000000000000000') {
-        setNotFound(true);
-      } else {
-        setLink(data);
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const user = await client.readContract({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [data.creator as `0x${string}`] }) as any;
-          if (user?.username) setCreatorName(user.username);
-        } catch { /* no username */ }
-      }
-    } catch { setNotFound(true); }
-    finally { setFetching(false); }
+    setNotFound(false);
+
+    // Try both contracts — mainnet first, then testnet.
+    // This makes the pay page work for anyone regardless of their wallet chain.
+    const candidates = [
+      { chainId: hashkeyMainnet.id, addr: CONTRACT_ADDRESSES[hashkeyMainnet.id] },
+      { chainId: hashkeyTestnet.id, addr: CONTRACT_ADDRESSES[hashkeyTestnet.id] },
+    ];
+
+    for (const candidate of candidates) {
+      try {
+        const data = await client.readContract({
+          address: candidate.addr, abi: PROTECTED_PAY_ABI,
+          functionName: 'getPaymentLink', args: [linkId as `0x${string}`],
+        }) as LinkData;
+        if (data && data.creator !== '0x0000000000000000000000000000000000000000') {
+          setLink(data);
+          setDetectedChainId(candidate.chainId);
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const user = await client.readContract({ address: candidate.addr, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [data.creator as `0x${string}`] }) as any;
+            if (user?.username) setCreatorName(user.username);
+          } catch { /* no username */ }
+          setFetching(false);
+          return; // found it — stop searching
+        }
+      } catch { /* not on this chain, try next */ }
+    }
+
+    // Not found on either chain
+    setNotFound(true);
+    setFetching(false);
   }, [client, linkId]);
 
   useEffect(() => { loadLink(); }, [loadLink]);
@@ -138,18 +154,23 @@ export default function PayPage() {
     if (!link || !isConnected) return;
     const value = link.amount > 0n ? link.amount : parseEther(customAmt || '0');
     if (value === 0n) { t('Enter an amount', 'error'); return; }
+    // Use the contract address where the link was found
+    const payContractAddress = detectedChainId
+      ? CONTRACT_ADDRESSES[detectedChainId]
+      : contractAddress;
     setLoading(true); t('Submitting…', 'loading');
     try {
       const hash = await writeContractAsync({
-        address: contractAddress, abi: PROTECTED_PAY_ABI,
+        address: payContractAddress, abi: PROTECTED_PAY_ABI,
         functionName: 'payLink', args: [linkId as `0x${string}`, remarks], value,
       });
       setTxHash(hash);
     } catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
-  }, [link, linkId, remarks, customAmt, writeContractAsync, isConnected]);
+  }, [link, linkId, remarks, customAmt, writeContractAsync, isConnected, detectedChainId, contractAddress]);
 
   const handleDownloadInvoice = useCallback((l: LinkData, txH?: string) => {
+    const explorer = detectedChainId ? EXPLORER_URLS[detectedChainId] : EXPLORER_URLS[hashkeyTestnet.id];
     const amtDisplay = l.amount === 0n
       ? 'Custom'
       : `${parseFloat(formatEther(l.amount)).toFixed(4)} ${NATIVE}`;
@@ -162,10 +183,10 @@ export default function PayPage() {
       paidAt:            fmtDate(l.paidAt),
       remarks:           l.remarks || undefined,
       txHash:            txH,
-      explorerUrl:       txH ? `${EXPLORER}/tx/${txH}` : undefined,
-      payerExplorerUrl:  `${EXPLORER}/address/${l.paidBy}`,
+      explorerUrl:       txH ? `${explorer}/tx/${txH}` : undefined,
+      payerExplorerUrl:  `${explorer}/address/${l.paidBy}`,
     });
-  }, [creatorName]);
+  }, [creatorName, detectedChainId]);
 
   const handleShare = useCallback(async (l: LinkData) => {
     const url = `${window.location.origin}/pay/${l.linkId}`;
@@ -271,7 +292,7 @@ export default function PayPage() {
               {effectiveTxHash && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, marginTop: 4 }}>
                   <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Transaction</span>
-                  <a href={`${EXPLORER}/tx/${effectiveTxHash}`} target="_blank" rel="noopener noreferrer"
+                  <a href={`${detectedChainId ? EXPLORER_URLS[detectedChainId] : EXPLORER_URLS[hashkeyTestnet.id]}/tx/${effectiveTxHash}`} target="_blank" rel="noopener noreferrer"
                     style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'monospace', color: 'var(--primary)', textDecoration: 'none' }}>
                     {shortAddress(effectiveTxHash)} <ExternalLink size={10} />
                   </a>
