@@ -72,6 +72,28 @@ When asked about anything unrelated (weather, sports, news, recipes, general cod
 - Crypto prices → "I don't track prices, but I can check your ${NATIVE_SYMBOL} balance on-chain — want me to?"
 Never flatly refuse. Always steer back to HashKey Pay.
 
+## CRITICAL BEHAVIOR — Always trigger actions directly
+When the user asks you to send, transfer, create, register, claim, refund, or do anything transaction-related — you MUST call the appropriate build tool immediately. Do NOT just explain steps. The build tool will produce a clickable wallet button in the UI.
+
+Examples of when to call tools immediately:
+- User says "send 0.01 HSK to @test" → call buildEscrow immediately
+- User says "create a group payment" → call buildGroupPayment immediately
+- User says "register @myname" → call buildRegisterUsername immediately
+- User says "send batch to these addresses" → call buildBatchTransfer immediately
+- User says "create a payment link for 1 HSK" → call buildPaymentLink immediately
+- User says "claim escrow #5" → call claimEscrow with escrowId="5" immediately
+- User says "refund escrow #3" → call refundEscrow with escrowId="3" immediately
+- User says "claim my escrow" (no ID) → FIRST call getEscrowHistory to find pending escrows, THEN call claimEscrow with the correct ID
+- User says "refund my escrow" (no ID) → FIRST call getEscrowHistory, show pending escrows, THEN call refundEscrow
+- User says "contribute to group #2" → call contributeToGroup immediately
+- User says "cancel group #3" → call cancelGroupPayment with groupId="3" immediately
+- User says "withdraw my contribution from group #5" → call withdrawContribution with groupId="5" immediately
+- User says "cancel my payment link" → call getPaymentLinks first to find active links, then call cancelPaymentLink
+- User says "claim token escrow #7" → call claimTokenEscrow with escrowId="7" immediately
+- User says "refund token escrow #2" → call refundTokenEscrow with escrowId="2" immediately
+
+Never say "here are the steps" when you can call a tool. Call the tool FIRST — the user can always ask for more info after.
+
 ## Navigation rules — CRITICAL
 - NEVER invent external URLs like "https://hashkeypay.xyz/anything"
 - All navigation is within the HashKey Pay dashboard sidebar: **Protected Transfer**, **Group Split**, **Batch Payment**, **Payment Links**, **History**
@@ -117,10 +139,10 @@ All activity (transfers, groups, batches, links) visible in the **History** tab.
 - Check ${NATIVE_SYMBOL} balance of any address (getBalance)
 - Fetch escrow, group, batch, payment link history (read-only, live on-chain data)
 - Get group contributors list
-- Build step-by-step instructions for creating transfers, groups, payment links
+- Trigger wallet confirmation popups for: creating transfers, group payments, batch payments, payment links, username registration, claiming/refunding escrows, contributing to groups
 
-## What you CANNOT do
-You cannot sign or submit transactions — the user must do that in their wallet. When they ask you to "send" something, use the build tools to get the resolved address, then give clear numbered steps pointing to the right dashboard tab.
+## What happens when you call a build tool
+The tool produces a clickable button in the chat UI. The user clicks it and their wallet popup appears. You DO trigger transactions — indirectly through the button. Always use the tools.
 
 ## Formatting rules
 - Use **bold** for UI element names and key terms
@@ -248,7 +270,7 @@ export async function POST(req: Request) {
       }),
 
       buildEscrow: tool({
-        description: 'Resolve recipient and give step-by-step instructions for creating a protected transfer',
+        description: 'ALWAYS call this tool when user wants to send HSK to someone as a protected transfer. Resolves @username to address and triggers the wallet confirmation button in the UI.',
         parameters: z.object({ recipient: z.string(), amount: z.string(), remarks: z.string() }),
         execute: async ({ recipient, amount, remarks }) => {
           let addr = recipient;
@@ -263,7 +285,7 @@ export async function POST(req: Request) {
       }),
 
       buildGroupPayment: tool({
-        description: 'Resolve recipient and give steps for creating a group split payment',
+        description: 'ALWAYS call this when user wants to create a group split payment. Resolves @username and triggers the wallet button.',
         parameters: z.object({ recipient: z.string(), totalAmount: z.string(), participants: z.number().int().min(2), remarks: z.string() }),
         execute: async ({ recipient, totalAmount, participants, remarks }) => {
           let addr = recipient;
@@ -279,7 +301,7 @@ export async function POST(req: Request) {
       }),
 
       buildBatchTransfer: tool({
-        description: 'Resolve recipients and give steps for a batch payment',
+        description: 'ALWAYS call this when user wants to batch send HSK to multiple addresses. Resolves @usernames and triggers the wallet button.',
         parameters: z.object({
           recipients: z.array(z.object({ address: z.string(), amount: z.string() })),
           remarks: z.string(),
@@ -320,23 +342,23 @@ export async function POST(req: Request) {
       }),
 
       claimEscrow: tool({
-        description: 'Give the escrow ID needed to claim a pending protected transfer',
+        description: 'ALWAYS call this when user wants to claim a pending escrow. If the user does not specify an ID, first call getEscrowHistory to find their pending escrows, then call this with the correct ID.',
         parameters: z.object({ escrowId: z.string().describe('The escrow ID to claim') }),
         execute: async ({ escrowId }) => {
-          return { escrowId, action: 'claimEscrow', steps: [`Go to **Protected Transfer** tab`, `Find escrow #${escrowId}`, `Click **Claim** button`] };
+          return { escrowId, action: 'claimEscrow' };
         },
       }),
 
       refundEscrow: tool({
-        description: 'Give the escrow ID needed to refund a pending protected transfer',
+        description: 'ALWAYS call this when user wants to refund a pending escrow. If the user does not specify an ID, first call getEscrowHistory to find their pending escrows, then call this with the correct ID.',
         parameters: z.object({ escrowId: z.string().describe('The escrow ID to refund') }),
         execute: async ({ escrowId }) => {
-          return { escrowId, action: 'refundEscrow', steps: [`Go to **Protected Transfer** tab`, `Find escrow #${escrowId}`, `Click **Refund** button`] };
+          return { escrowId, action: 'refundEscrow' };
         },
       }),
 
       contributeToGroup: tool({
-        description: 'Look up a group payment and give steps to contribute to it',
+        description: 'ALWAYS call this when user wants to contribute to a group payment. Looks up the group and triggers the wallet button.',
         parameters: z.object({ groupId: z.string() }),
         execute: async ({ groupId }) => {
           try {
@@ -346,13 +368,43 @@ export async function POST(req: Request) {
             const perPerson = formatEther(g.amountPerPerson);
             return { groupId, action: 'contributeToGroup', amountPerPerson: String(g.amountPerPerson), perPersonDisplay: perPerson, spots: `${Number(g.contributedCount)}/${Number(g.numParticipants)}` };
           } catch {
-            return { groupId, action: 'contributeToGroup', amountPerPerson: '0', perPersonDisplay: 'unknown' };
+            return { error: `Could not find group #${groupId} on chain. Make sure the ID is correct.` };
           }
         },
       }),
 
+      claimTokenEscrow: tool({
+        description: 'ALWAYS call this when user wants to claim a pending token escrow. If no ID given, call getEscrowHistory first.',
+        parameters: z.object({ escrowId: z.string() }),
+        execute: async ({ escrowId }) => ({ escrowId, action: 'claimTokenEscrow' }),
+      }),
+
+      refundTokenEscrow: tool({
+        description: 'ALWAYS call this when user wants to refund a pending token escrow. If no ID given, call getEscrowHistory first.',
+        parameters: z.object({ escrowId: z.string() }),
+        execute: async ({ escrowId }) => ({ escrowId, action: 'refundTokenEscrow' }),
+      }),
+
+      cancelGroupPayment: tool({
+        description: 'ALWAYS call this when the group creator wants to cancel a group payment and refund all contributors.',
+        parameters: z.object({ groupId: z.string() }),
+        execute: async ({ groupId }) => ({ groupId, action: 'cancelGroupPayment' }),
+      }),
+
+      withdrawContribution: tool({
+        description: 'ALWAYS call this when a contributor wants to withdraw their contribution from a group payment.',
+        parameters: z.object({ groupId: z.string() }),
+        execute: async ({ groupId }) => ({ groupId, action: 'withdrawContribution' }),
+      }),
+
+      cancelPaymentLink: tool({
+        description: 'ALWAYS call this when the user wants to cancel an active payment link.',
+        parameters: z.object({ linkId: z.string().describe('The bytes32 linkId of the payment link') }),
+        execute: async ({ linkId }) => ({ linkId, action: 'cancelPaymentLink' }),
+      }),
+
       buildRegisterUsername: tool({
-        description: 'Build a username registration transaction. Use this when the user wants to register an on-chain username.',
+        description: 'ALWAYS call this when the user wants to register a username. Checks availability and triggers the wallet button.',
         parameters: z.object({ username: z.string().min(3).max(30).describe('The username to register (3-30 chars, no @)') }),
         execute: async ({ username }) => {
           try {
@@ -364,7 +416,7 @@ export async function POST(req: Request) {
       }),
 
       buildPaymentLink: tool({
-        description: 'Give steps for creating a payment link',
+        description: 'ALWAYS call this when the user wants to create a payment link. Triggers the wallet button.',
         parameters: z.object({ amount: z.string(), description: z.string() }),
         execute: async ({ amount, description }) => {
           const isAny = amount === '0' || amount.toLowerCase() === 'any';

@@ -10,7 +10,9 @@ import { getContractAddress } from '../lib/wagmi';
 import { MessageCircle, X, Send, Bot, User, Loader2, Sparkles, ChevronDown, Zap, CheckCircle2 } from 'lucide-react';
 
 interface PendingAction {
-  type: 'createEscrow' | 'createGroupPayment' | 'createPaymentLink' | 'batchTransfer' | 'claimEscrow' | 'refundEscrow' | 'contributeToGroup' | 'registerUsername';
+  type: 'createEscrow' | 'createGroupPayment' | 'createPaymentLink' | 'batchTransfer' | 
+        'claimEscrow' | 'refundEscrow' | 'contributeToGroup' | 'registerUsername' |
+        'claimTokenEscrow' | 'refundTokenEscrow' | 'cancelGroupPayment' | 'withdrawContribution' | 'cancelPaymentLink';
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   params: Record<string, any>;
   label: string;
@@ -94,11 +96,31 @@ function extractAction(invocations: any[]): PendingAction | null {
     if (inv.toolName === 'claimEscrow'   && r.escrowId) return { type: 'claimEscrow',   params: { id: r.escrowId },          label: `Claim Escrow #${r.escrowId}`,   value: undefined };
     if (inv.toolName === 'refundEscrow'  && r.escrowId) return { type: 'refundEscrow',  params: { id: r.escrowId },          label: `Refund Escrow #${r.escrowId}`,  value: undefined };
     if (inv.toolName === 'contributeToGroup' && r.groupId) {
-      const perWei = r.amountPerPerson ? BigInt(r.amountPerPerson) : undefined;
-      return { type: 'contributeToGroup', params: { groupId: r.groupId }, label: `Contribute to Group #${r.groupId}${r.perPersonDisplay ? ` · ${r.perPersonDisplay} HSK` : ''}`, value: perWei };
+      const perWei = r.amountPerPerson && r.amountPerPerson !== '0' ? BigInt(r.amountPerPerson) : undefined;
+      if (!perWei) continue; // don't show button if we don't know the amount
+      return { type: 'contributeToGroup', params: { groupId: r.groupId }, label: `Contribute to Group #${r.groupId} · ${r.perPersonDisplay} HSK`, value: perWei };
     }
     if (inv.toolName === 'buildRegisterUsername' && r.username) {
       return { type: 'registerUsername', params: { username: r.username }, label: `Register @${r.username}`, value: undefined };
+    }
+    if (inv.toolName === 'buildTokenEscrow' && inv.result?.resolvedAddress) {
+      // Token escrow needs 2-step flow (approve + create) — no single button, show info only
+      continue;
+    }
+    if (inv.toolName === 'claimTokenEscrow' && r.escrowId) {
+      return { type: 'claimTokenEscrow', params: { id: r.escrowId }, label: `Claim Token Escrow #${r.escrowId}`, value: undefined };
+    }
+    if (inv.toolName === 'refundTokenEscrow' && r.escrowId) {
+      return { type: 'refundTokenEscrow', params: { id: r.escrowId }, label: `Refund Token Escrow #${r.escrowId}`, value: undefined };
+    }
+    if (inv.toolName === 'cancelGroupPayment' && r.groupId) {
+      return { type: 'cancelGroupPayment', params: { id: r.groupId }, label: `Cancel & Refund Group #${r.groupId}`, value: undefined };
+    }
+    if (inv.toolName === 'withdrawContribution' && r.groupId) {
+      return { type: 'withdrawContribution', params: { id: r.groupId }, label: `Withdraw Contribution from Group #${r.groupId}`, value: undefined };
+    }
+    if (inv.toolName === 'cancelPaymentLink' && r.linkId) {
+      return { type: 'cancelPaymentLink', params: { linkId: r.linkId }, label: `Cancel Payment Link`, value: undefined };
     }
   }
   return null;
@@ -134,6 +156,11 @@ function TxButton({ action, onDone }: { action: PendingAction; onDone: (msg: str
       else if (action.type === 'refundEscrow')       hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'refundEscrow',       args: [BigInt(action.params.id)] });
       else if (action.type === 'contributeToGroup')  hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'contributeToGroup',  args: [BigInt(action.params.groupId)],                                                                        value: action.value ?? 0n });
       else if (action.type === 'registerUsername')   hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'registerUsername',   args: [action.params.username] });
+      else if (action.type === 'claimTokenEscrow')    hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'claimTokenEscrow',    args: [BigInt(action.params.id)] });
+      else if (action.type === 'refundTokenEscrow')   hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'refundTokenEscrow',   args: [BigInt(action.params.id)] });
+      else if (action.type === 'cancelGroupPayment')  hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'cancelGroupPayment',  args: [BigInt(action.params.id)] });
+      else if (action.type === 'withdrawContribution') hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'withdrawContribution', args: [BigInt(action.params.id)] });
+      else if (action.type === 'cancelPaymentLink')   hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'cancelPaymentLink',   args: [action.params.linkId as `0x${string}`] });
       else { setPhase('idle'); return; }
       setTxHash(hash);
       setPhase('mining');
