@@ -31,7 +31,7 @@ const FEATURES = [
   },
   {
     num: '02', tag: 'TOKEN ESCROW', icon: Coins,
-    title: 'Escrow any ERC-20 token, not just HSK.',
+    title: 'Escrow any ERC-20 token, not just C2FLR.',
     desc: 'Paste a token contract address, approve once, and lock any ERC-20 in the same trustless escrow flow. Claim or refund anytime.',    stat: 'ANY', statLabel: 'ERC-20',
     href: '/app',
   },
@@ -73,7 +73,7 @@ const FEATURES = [
   {
     num: '08', tag: 'SECURITY', icon: ShieldCheck,
     title: 'Smart contracts, not promises.',
-    desc: 'No admin key, no upgrade mechanism, no pause function. Every payment is enforced by EVM code on HashKey Chain.',
+    desc: 'No admin key, no upgrade mechanism, no pause function. Every payment is enforced by EVM code on Flare.',
     stat: '0', statLabel: 'MIDDLEMEN',
     href: '/app',
   },
@@ -89,7 +89,7 @@ const FEATURES = [
 const FAQS = [
   {
     q: 'What is a protected transfer?',
-    a: 'A protected transfer locks your HSK in a smart contract on HashKey Chain. The recipient can claim at any time. If they don\'t, you refund yourself — no third party holds the funds, only the contract.',
+    a: 'A protected transfer locks your C2FLR in a smart contract on the Flare Testnet Coston2. The recipient can claim at any time. If they don\'t, you refund yourself — no third party holds the funds, only the contract.',
   },
   {
     q: 'Can I escrow ERC-20 tokens too?',
@@ -109,23 +109,27 @@ const FAQS = [
   },
   {
     q: 'What is PayBot?',
-    a: 'PayBot is an AI assistant built into the dashboard. You can ask it in plain English — "send 1 HSK to @alice as escrow" — and it will trigger the wallet confirmation popup instantly. It can also check your history, resolve usernames, and explain any feature.',
+    a: 'PayBot is an AI assistant built into the dashboard. You can ask it in plain English — "send 1 C2FLR to @alice as escrow" — and it will trigger the wallet confirmation popup instantly. It can also check your history, resolve usernames, and explain any feature.',
   },
   {
     q: 'What is the username registry?',
-    a: 'You can register a unique on-chain username (3–30 characters). Others send to @yourname instead of your full address. It works across all HashKey Pay features and is fully on-chain — no off-chain indexer needed.',
+    a: 'You can register a unique on-chain username (3–30 characters). Others send to @yourname instead of your full address. It works across all FlarePay features and is fully on-chain — no off-chain indexer needed.',
   },
   {
     q: 'What token is used for gas?',
-    a: 'All transactions use HSK, the native token of HashKey Chain. You need a small amount of HSK in your wallet to pay for gas.',
+    a: 'All transactions use C2FLR, the native gas token of the Flare Testnet Coston2. You need a small amount of C2FLR in your wallet to pay for gas — grab some free from the Flare faucet.',
   },
   {
-    q: 'Is HashKey Pay non-custodial?',
-    a: 'Yes. HashKey Pay is a set of EVM smart contracts on HashKey Chain. No company or individual holds your funds. No admin key, no upgrade mechanism, no pause function. The contract code is open source and auditable by anyone.',
+    q: 'Is FlarePay non-custodial?',
+    a: 'Yes. FlarePay is a set of EVM smart contracts on Flare. No company or individual holds your funds. No admin key, no upgrade mechanism, no pause function. The contract code is open source and auditable by anyone.',
   },
   {
     q: 'Which wallets are supported?',
-    a: 'HashKey Pay works with any EVM-compatible wallet: MetaMask, Rainbow, Coinbase Wallet, Trust Wallet, and more. Switch to HashKey Chain and connect.',
+    a: 'FlarePay works with any EVM-compatible wallet: MetaMask, Rainbow, Coinbase Wallet, Trust Wallet, and more. Switch to the Flare Testnet Coston2 and connect.',
+  },
+  {
+    q: 'How do I get test funds?',
+    a: 'Click "Get Test Funds" in the dashboard sidebar, or visit the official Flare faucet directly. It sends free C2FLR to your wallet on the Coston2 testnet so you can try every feature at no cost.',
   },
 ];
 
@@ -189,14 +193,14 @@ export default function HomePage() {
                 background: 'var(--primary)',
                 display: 'inline-block',
               }} />
-              HashKey Chain · EVM Smart Contracts · HSK Gas
+              Flare Testnet Coston2 · EVM Smart Contracts · C2FLR Gas
             </p>
             <h1 style={{ fontSize: 'clamp(44px, 7vw, 88px)', fontWeight: 800, lineHeight: 1.05, letterSpacing: '-3px', marginBottom: 28 }}>
               <span style={{ color: 'var(--foreground)', display: 'block' }}>Protected Payments</span>
-              <span className="text-gradient" style={{ display: 'block' }}>Built on HashKey</span>
+              <span className="text-gradient" style={{ display: 'block' }}>Built on Flare</span>
             </h1>
             <p style={{ fontSize: 18, lineHeight: 1.7, color: 'var(--foreground-muted)', maxWidth: 520, margin: '0 auto 40px' }}>
-              Trustless escrow, group crowdfunding, and batch transfers — secured by EVM smart contracts on HashKey Chain. No intermediaries. No trust required.
+              Trustless escrow, group crowdfunding, and batch transfers — secured by EVM smart contracts on the Flare Testnet Coston2. No intermediaries. No trust required.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
               <Link href="/app" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '14px 28px', borderRadius: 999, background: 'var(--primary)', color: 'var(--primary-fg)', fontSize: 15, fontWeight: 700, textDecoration: 'none' }}
@@ -205,7 +209,28 @@ export default function HomePage() {
               >
                 Launch App <ArrowRight size={17} />
               </Link>
-              <a href="https://x.com/hash_key_pay" target="_blank" rel="noopener noreferrer"
+              <a href="https://faucet.flare.network/" target="_blank" rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '14px 28px', borderRadius: 999,
+                  background: 'transparent', border: '1px solid var(--border)',
+                  color: 'var(--foreground-muted)', fontSize: 15, fontWeight: 600,
+                  textDecoration: 'none', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--foreground)';
+                  (e.currentTarget as HTMLAnchorElement).style.color = 'var(--foreground)';
+                  (e.currentTarget as HTMLAnchorElement).style.background = 'var(--surface-elevated)';
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--border)';
+                  (e.currentTarget as HTMLAnchorElement).style.color = 'var(--foreground-muted)';
+                  (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
+                }}
+              >
+                Get Test Funds
+              </a>
+              <a href="https://x.com/FlarePay" target="_blank" rel="noopener noreferrer"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
                   padding: '14px 28px', borderRadius: 999,
@@ -243,13 +268,13 @@ export default function HomePage() {
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
             <img
               src="/hero-img-dark.png"
-              alt="HashKey Pay app"
+              alt="FlarePay app"
               className="hero-dark"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top left' }}
             />
             <img
               src="/hero-img-light.png"
-              alt="HashKey Pay app"
+              alt="FlarePay app"
               className="hero-light"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top left', position: 'absolute', top: 0, left: 0 }}
             />
@@ -261,13 +286,13 @@ export default function HomePage() {
       <section style={{ padding: '64px 0 72px', textAlign: 'center' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
           <span style={{ fontSize: 14, color: 'var(--foreground-subtle)', fontWeight: 400 }}>Powered by</span>
-          <img src="/chain/Hashkey.png" alt="HashKey Chain"
+          <img src="/chain/flare.png" alt="Flare"
             style={{ height: 48, width: 'auto', objectFit: 'contain', display: 'block' }}
             onError={e => {
               const el = e.currentTarget as HTMLImageElement;
               el.style.display = 'none';
               const span = document.createElement('span');
-              span.textContent = 'HashKey Chain';
+              span.textContent = 'Flare';
               span.style.cssText = 'font-size:28px;font-weight:800;color:var(--foreground);letter-spacing:-1px';
               el.parentElement?.appendChild(span);
             }}
@@ -328,7 +353,7 @@ export default function HomePage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderTop: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>
             {[
-              { n: '01', title: 'Connect Wallet',    desc: 'Install MetaMask, Rainbow, or any EVM wallet. Connect to HashKey Chain in one click — the app will prompt you to add the chain.' },
+              { n: '01', title: 'Connect Wallet',    desc: 'Install MetaMask, Rainbow, or any EVM wallet. Connect to the Flare Testnet Coston2 in one click — the app will prompt you to add the chain.' },
               { n: '02', title: 'Register Username', desc: 'Claim a unique on-chain name. Others can send to @you instead of a long address.' },
               { n: '03', title: 'Send or Receive',   desc: 'Create an escrow, start a group payment, or batch-send to multiple addresses.' },
               { n: '04', title: 'Claim Funds',       desc: 'Recipients claim directly from the contract. Fully trustless. No middleman.' },
@@ -350,17 +375,17 @@ export default function HomePage() {
             <div>
               <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
-                Why builders choose HashKey Pay
+                Why builders choose FlarePay
               </p>
               <h2 style={{ fontSize: 'clamp(36px, 5vw, 60px)', fontWeight: 800, letterSpacing: '-2.5px', lineHeight: 1.05 }}>
-                <span style={{ color: 'var(--foreground)' }}>See where every HSK lands —</span>
+                <span style={{ color: 'var(--foreground)' }}>See where every C2FLR lands —</span>
                 <br />
                 <span style={{ color: 'var(--foreground-muted)' }}>before it leaves.</span>
               </h2>
             </div>
             <div>
               <p style={{ fontSize: 16, color: 'var(--foreground-muted)', lineHeight: 1.75, marginBottom: 32 }}>
-                On-chain transparency, post-transfer certainty. Every escrow, group payment, and batch transfer is recorded on HashKey Chain — visible to anyone, controlled by no one.
+                On-chain transparency, post-transfer certainty. Every escrow, group payment, and batch transfer is recorded on the Flare Testnet Coston2 — visible to anyone, controlled by no one.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {[
@@ -403,9 +428,9 @@ export default function HomePage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
             {/* Left — brand */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <img src="/logo.png" alt="HashKey Pay" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>HashKeyPay</span>
-              <span style={{ fontSize: 13, color: 'var(--foreground-subtle)', marginLeft: 4 }}>· EVM · HashKey Chain</span>
+              <img src="/logo.png" alt="FlarePay" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>FlarePay</span>
+              <span style={{ fontSize: 13, color: 'var(--foreground-subtle)', marginLeft: 4 }}>· EVM · Flare Testnet Coston2</span>
             </div>
 
             {/* Right — nav links + social icons */}
@@ -427,7 +452,7 @@ export default function HomePage() {
               <span style={{ width: 1, height: 16, background: 'var(--border)' }} />
 
               {/* X / Twitter */}
-              <a href="https://x.com/hash_key_pay" target="_blank" rel="noopener noreferrer"
+              <a href="https://x.com/FlarePay" target="_blank" rel="noopener noreferrer"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 34, height: 34, borderRadius: 8,
@@ -448,7 +473,7 @@ export default function HomePage() {
               </a>
 
               {/* GitHub */}
-              <a href="https://github.com/Spydiecy/HashkeyPay" target="_blank" rel="noopener noreferrer"
+              <a href="https://github.com/Spydiecy/FlarePay" target="_blank" rel="noopener noreferrer"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 34, height: 34, borderRadius: 8,

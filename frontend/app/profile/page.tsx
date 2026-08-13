@@ -14,8 +14,8 @@ import {
 } from 'lucide-react';
 
 type HistoryTab = 'all' | 'protected' | 'group' | 'batch' | 'links';
-const NATIVE   = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
-const EXPLORER = 'https://testnet-explorer.hsk.xyz';
+const NATIVE   = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
+const EXPLORER = 'https://coston2-explorer.flare.network';
 
 function fmtDate(ts: string | undefined) {
   if (!ts || ts === '0') return null;
@@ -352,7 +352,7 @@ function HistoryContent() {
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>HashKey Pay</p>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>FlarePay</p>
           <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-1px' }}>Transaction History</h1>
           <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginTop: 4 }}>All your on-chain activity in one place</p>
         </div>

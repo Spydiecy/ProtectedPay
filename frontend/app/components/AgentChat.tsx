@@ -75,13 +75,13 @@ function extractAction(invocations: any[]): PendingAction | null {
     if (inv.toolName === 'buildEscrow' && r.resolvedAddress && r.amount) {
       const wei = (() => { try { return parseEther(r.amount); } catch { return null; } })();
       if (!wei) continue;
-      return { type: 'createEscrow', params: { recipient: r.resolvedAddress, remarks: r.remarks ?? '' }, label: `Send ${r.amount} HSK → ${r.resolvedAddress.slice(0, 8)}…`, value: wei };
+      return { type: 'createEscrow', params: { recipient: r.resolvedAddress, remarks: r.remarks ?? '' }, label: `Send ${r.amount} C2FLR → ${r.resolvedAddress.slice(0, 8)}…`, value: wei };
     }
     if (inv.toolName === 'buildGroupPayment' && r.resolvedAddress && r.totalAmount) {
       const perWei   = (() => { try { return parseEther(r.perPerson); }   catch { return null; } })();
       const totalWei = (() => { try { return parseEther(r.totalAmount); } catch { return null; } })();
       if (!perWei || !totalWei) continue;
-      return { type: 'createGroupPayment', params: { recipient: r.resolvedAddress, totalAmount: totalWei, participants: r.participants, remarks: r.remarks ?? '' }, label: `Create Group: ${r.totalAmount} HSK ÷ ${r.participants}`, value: perWei };
+      return { type: 'createGroupPayment', params: { recipient: r.resolvedAddress, totalAmount: totalWei, participants: r.participants, remarks: r.remarks ?? '' }, label: `Create Group: ${r.totalAmount} C2FLR ÷ ${r.participants}`, value: perWei };
     }
     if (inv.toolName === 'buildPaymentLink' && r.description !== undefined) {
       const weiAmt = r.amount === '0' ? 0n : (() => { try { return parseEther(r.amount); } catch { return 0n; } })();
@@ -91,14 +91,14 @@ function extractAction(invocations: any[]): PendingAction | null {
       const addrs   = r.resolvedRecipients.map((x: { address: string }) => x.address);
       const amounts = r.resolvedRecipients.map((x: { amount: string }) => { try { return parseEther(x.amount); } catch { return 0n; } });
       const total   = amounts.reduce((s: bigint, a: bigint) => s + a, 0n);
-      return { type: 'batchTransfer', params: { recipients: addrs, amounts, remarks: r.remarks }, label: `Batch to ${addrs.length} recipients · ${r.total} HSK`, value: total };
+      return { type: 'batchTransfer', params: { recipients: addrs, amounts, remarks: r.remarks }, label: `Batch to ${addrs.length} recipients · ${r.total} C2FLR`, value: total };
     }
     if (inv.toolName === 'claimEscrow'   && r.escrowId) return { type: 'claimEscrow',   params: { id: r.escrowId },          label: `Claim Escrow #${r.escrowId}`,   value: undefined };
     if (inv.toolName === 'refundEscrow'  && r.escrowId) return { type: 'refundEscrow',  params: { id: r.escrowId },          label: `Refund Escrow #${r.escrowId}`,  value: undefined };
     if (inv.toolName === 'contributeToGroup' && r.groupId) {
       const perWei = r.amountPerPerson && r.amountPerPerson !== '0' ? BigInt(r.amountPerPerson) : undefined;
       if (!perWei) continue; // don't show button if we don't know the amount
-      return { type: 'contributeToGroup', params: { groupId: r.groupId }, label: `Contribute to Group #${r.groupId} · ${r.perPersonDisplay} HSK`, value: perWei };
+      return { type: 'contributeToGroup', params: { groupId: r.groupId }, label: `Contribute to Group #${r.groupId} · ${r.perPersonDisplay} C2FLR`, value: perWei };
     }
     if (inv.toolName === 'buildRegisterUsername' && r.username) {
       return { type: 'registerUsername', params: { username: r.username }, label: `Register @${r.username}`, value: undefined };
@@ -213,7 +213,7 @@ export default function AgentChat() {
     initialMessages: [{
       id: 'welcome',
       role: 'assistant',
-      content: `Hey! I'm **PayBot** 👋 — your HashKey Pay assistant.\n\nI can help you with:\n- Protected transfers (native & ERC-20 tokens)\n- Group split payments\n- Batch payments\n- Payment links & QR codes\n- Checking your transaction history\n\nJust ask in plain English — and I can trigger the wallet popup right here!`,
+      content: `Hey! I'm **PayBot** 👋 — your FlarePay assistant.\n\nI can help you with:\n- Protected transfers (native & ERC-20 tokens)\n- Group split payments\n- Batch payments\n- Payment links & QR codes\n- Checking your transaction history\n\nJust ask in plain English — and I can trigger the wallet popup right here!`,
     }],
   });
 
@@ -234,8 +234,8 @@ export default function AgentChat() {
 
   const QUICK = [
     'Check my history',
-    'Send 0.5 HSK to @spy as escrow',
-    'Create a payment link for 1 HSK',
+    'Send 0.5 C2FLR to @spy as escrow',
+    'Create a payment link for 1 C2FLR',
     'How does group split work?',
   ];
 
@@ -327,7 +327,7 @@ export default function AgentChat() {
           )}
 
           <form onSubmit={onSubmit} style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, flexShrink: 0, background: 'var(--surface-elevated)' }}>
-            <input value={input} onChange={handleInputChange} placeholder="Ask PayBot anything about HashKey Pay…" disabled={isLoading}
+            <input value={input} onChange={handleInputChange} placeholder="Ask PayBot anything about FlarePay…" disabled={isLoading}
               style={{ flex: 1, padding: '10px 16px', borderRadius: 999, background: 'var(--surface-card)', color: 'var(--foreground)', border: '1px solid var(--border)', fontSize: 13.5, outline: 'none', transition: 'border-color 0.15s' }}
               onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
               onBlur={e => (e.target.style.borderColor = 'var(--border)')}

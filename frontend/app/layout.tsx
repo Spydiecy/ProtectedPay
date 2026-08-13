@@ -5,8 +5,8 @@ import Navbar from './components/Navbar';
 import SmoothScroll from './components/SmoothScroll';
 
 export const metadata: Metadata = {
-  title: 'HashKey Pay — Trustless Payments on HashKey Chain',
-  description: 'Protected transfers, group splits, and batch payments secured by EVM smart contracts on HashKey Chain.',
+  title: 'FlarePay — Trustless Payments on Flare',
+  description: 'Protected transfers, group splits, and batch payments secured by EVM smart contracts on the Flare Testnet Coston2.',
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',

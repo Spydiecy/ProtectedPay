@@ -50,9 +50,9 @@ export default function Navbar() {
 
           {/* Logo */}
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-            <img src="/logo.png" alt="HashKey Pay" style={{ width: 32, height: 32, borderRadius: 9, objectFit: 'cover' }} />
+            <img src="/logo.png" alt="FlarePay" style={{ width: 32, height: 32, borderRadius: 9, objectFit: 'cover' }} />
             <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', letterSpacing: '-0.3px' }}>
-              HashKey<span style={{ color: 'var(--primary)' }}>Pay</span>
+              Flare<span style={{ color: 'var(--primary)' }}>Pay</span>
             </span>
           </Link>
 

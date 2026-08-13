@@ -3,45 +3,33 @@ import { streamText, tool } from 'ai';
 import { z } from 'zod';
 import { createPublicClient, http, formatEther } from 'viem';
 
-const NATIVE_SYMBOL = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
+const NATIVE_SYMBOL = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
 
-// ── Chain definitions ─────────────────────────────────────────────────────────
-const hashkeyTestnet = {
-  id: 133,
-  name: 'HashKey Chain Testnet',
-  nativeCurrency: { name: 'HSK', symbol: 'HSK', decimals: 18 },
-  rpcUrls: { default: { http: ['https://testnet.hsk.xyz'] } },
+// ── Chain definition ──────────────────────────────────────────────────────────
+const flareTestnet = {
+  id: 114,
+  name: 'Flare Testnet Coston2',
+  nativeCurrency: { name: 'Coston2 Flare', symbol: 'C2FLR', decimals: 18 },
+  rpcUrls: { default: { http: ['https://coston2-api.flare.network/ext/C/rpc'] } },
 } as const;
 
-const hashkeyMainnet = {
-  id: 177,
-  name: 'HashKey Chain',
-  nativeCurrency: { name: 'HSK', symbol: 'HSK', decimals: 18 },
-  rpcUrls: { default: { http: ['https://mainnet.hsk.xyz'] } },
-} as const;
-
-// ── Contract addresses per chain ──────────────────────────────────────────────
+// ── Contract address (single-chain deployment) ────────────────────────────────
 const CONTRACT_ADDRESSES: Record<number, `0x${string}`> = {
-  133: (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET || '0xF93132d75c20EfeD556EC2Bc5aC777750665D3a9') as `0x${string}`,
-  177: (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET || '0xCa36dD890F987EDcE1D6D7C74Fb9df627c216BF6') as `0x${string}`,
+  114: (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xCa36dD890F987EDcE1D6D7C74Fb9df627c216BF6') as `0x${string}`,
 };
 
 // ── Explorer URLs per chain ───────────────────────────────────────────────────
 const EXPLORER_URLS: Record<number, string> = {
-  133: 'https://testnet-explorer.hsk.xyz',
-  177: 'https://hashkey.blockscout.com',
+  114: 'https://coston2-explorer.flare.network',
 };
 
 // ── Build a chain-specific public client ──────────────────────────────────────
-function getClient(chainId: number) {
-  if (chainId === 177) {
-    return createPublicClient({ chain: hashkeyMainnet as never, transport: http('https://mainnet.hsk.xyz') });
-  }
-  return createPublicClient({ chain: hashkeyTestnet as never, transport: http('https://testnet.hsk.xyz') });
+function getClient(_chainId: number) {
+  return createPublicClient({ chain: flareTestnet as never, transport: http('https://coston2-api.flare.network/ext/C/rpc') });
 }
 
-function getNetworkName(chainId: number) {
-  return chainId === 177 ? 'HashKey Chain Mainnet' : 'HashKey Chain Testnet';
+function getNetworkName(_chainId: number) {
+  return 'Flare Testnet Coston2';
 }
 
 const ABI = [
@@ -62,25 +50,25 @@ const LINK_STATUS   = ['Active', 'Paid', 'Cancelled'];
 const mistral = createMistral({ apiKey: process.env.MISTRAL_API_KEY });
 
 // ── System prompt ─────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are PayBot, the friendly AI assistant built into HashKey Pay — a trustless on-chain payment platform on HashKey Chain (EVM, Chain ID 133 testnet / 177 mainnet, native gas token: ${NATIVE_SYMBOL}).
+const SYSTEM_PROMPT = `You are PayBot, the friendly AI assistant built into FlarePay — a trustless on-chain payment platform on the Flare Testnet Coston2 (EVM, Chain ID 114, native gas token: ${NATIVE_SYMBOL}).
 
 ## Personality
-You ONLY discuss HashKey Pay and crypto payments. You are NOT a general-purpose AI.
-When asked about anything unrelated (weather, sports, news, recipes, general coding, etc.) give a short, warm, witty redirect back to HashKey Pay. Examples:
-- Weather → "Not sure about the weather, but ${NATIVE_SYMBOL} transfers on HashKey Chain are flowing smoothly! Want to send some?"
+You ONLY discuss FlarePay and crypto payments. You are NOT a general-purpose AI.
+When asked about anything unrelated (weather, sports, news, recipes, general coding, etc.) give a short, warm, witty redirect back to FlarePay. Examples:
+- Weather → "Not sure about the weather, but ${NATIVE_SYMBOL} transfers on Flare are flowing smoothly! Want to send some?"
 - Sports → "I'm more of a payments guy! How about sending a batch payment to your team after the game?"
 - Crypto prices → "I don't track prices, but I can check your ${NATIVE_SYMBOL} balance on-chain — want me to?"
-Never flatly refuse. Always steer back to HashKey Pay.
+Never flatly refuse. Always steer back to FlarePay.
 
 ## CRITICAL BEHAVIOR — Always trigger actions directly
 When the user asks you to send, transfer, create, register, claim, refund, or do anything transaction-related — you MUST call the appropriate build tool immediately. Do NOT just explain steps. The build tool will produce a clickable wallet button in the UI.
 
 Examples of when to call tools immediately:
-- User says "send 0.01 HSK to @test" → call buildEscrow immediately
+- User says "send 0.01 C2FLR to @test" → call buildEscrow immediately
 - User says "create a group payment" → call buildGroupPayment immediately
 - User says "register @myname" → call buildRegisterUsername immediately
 - User says "send batch to these addresses" → call buildBatchTransfer immediately
-- User says "create a payment link for 1 HSK" → call buildPaymentLink immediately
+- User says "create a payment link for 1 C2FLR" → call buildPaymentLink immediately
 - User says "claim escrow #5" → call claimEscrow with escrowId="5" immediately
 - User says "refund escrow #3" → call refundEscrow with escrowId="3" immediately
 - User says "claim my escrow" (no ID) → FIRST call getEscrowHistory to find pending escrows, THEN call claimEscrow with the correct ID
@@ -95,9 +83,10 @@ Examples of when to call tools immediately:
 Never say "here are the steps" when you can call a tool. Call the tool FIRST — the user can always ask for more info after.
 
 ## Navigation rules — CRITICAL
-- NEVER invent external URLs like "https://hashkeypay.xyz/anything"
-- All navigation is within the HashKey Pay dashboard sidebar: **Protected Transfer**, **Group Split**, **Batch Payment**, **Payment Links**, **History**
+- NEVER invent external URLs like "https://flarepay.xyz/anything"
+- All navigation is within the FlarePay dashboard sidebar: **Protected Transfer**, **Group Split**, **Batch Payment**, **Payment Links**, **History**
 - Always say: "Go to the **Protected Transfer** tab in the dashboard" — never a URL
+- If the user needs test funds, tell them to click **Get Test Funds** in the sidebar, or visit the Flare faucet at https://faucet.flare.network/
 
 ## Features
 
@@ -160,9 +149,9 @@ export async function POST(req: Request) {
   const { messages, walletAddress, chainId } = await req.json();
 
   // Resolve chain-specific values — default to testnet if not provided
-  const activeChainId = typeof chainId === 'number' ? chainId : 133;
-  const CONTRACT_ADDRESS = CONTRACT_ADDRESSES[activeChainId] ?? CONTRACT_ADDRESSES[133];
-  const EXPLORER = EXPLORER_URLS[activeChainId] ?? EXPLORER_URLS[133];
+  const activeChainId = typeof chainId === 'number' ? chainId : 114;
+  const CONTRACT_ADDRESS = CONTRACT_ADDRESSES[activeChainId] ?? CONTRACT_ADDRESSES[114];
+  const EXPLORER = EXPLORER_URLS[activeChainId] ?? EXPLORER_URLS[114];
   const networkName = getNetworkName(activeChainId);
   const publicClient = getClient(activeChainId);
 
@@ -270,7 +259,7 @@ export async function POST(req: Request) {
       }),
 
       buildEscrow: tool({
-        description: 'ALWAYS call this tool when user wants to send HSK to someone as a protected transfer. Resolves @username to address and triggers the wallet confirmation button in the UI.',
+        description: 'ALWAYS call this tool when user wants to send C2FLR to someone as a protected transfer. Resolves @username to address and triggers the wallet confirmation button in the UI.',
         parameters: z.object({ recipient: z.string(), amount: z.string(), remarks: z.string() }),
         execute: async ({ recipient, amount, remarks }) => {
           let addr = recipient;
@@ -301,7 +290,7 @@ export async function POST(req: Request) {
       }),
 
       buildBatchTransfer: tool({
-        description: 'ALWAYS call this when user wants to batch send HSK to multiple addresses. Resolves @usernames and triggers the wallet button.',
+        description: 'ALWAYS call this when user wants to batch send C2FLR to multiple addresses. Resolves @usernames and triggers the wallet button.',
         parameters: z.object({
           recipients: z.array(z.object({ address: z.string(), amount: z.string() })),
           remarks: z.string(),

@@ -5,24 +5,19 @@ import { parseEther, formatEther, createPublicClient, http } from 'viem';
 import { useParams } from 'next/navigation';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { PROTECTED_PAY_ABI } from '../../lib/abi';
-import { shortAddress, hashkeyMainnet, hashkeyTestnet, CONTRACT_ADDRESSES, EXPLORER_URLS } from '../../lib/wagmi';
+import { shortAddress, flareTestnet, CONTRACT_ADDRESSES, EXPLORER_URLS } from '../../lib/wagmi';
 import { useContractAddress } from '../../hooks/useContract';
 import Toast, { ToastType } from '../../components/Toast';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { generateInvoicePDF } from '../../lib/invoice';
 import { CheckCircle2, Ban, ArrowRight, ExternalLink, Shield, Copy, Check, Download, Share2 } from 'lucide-react';
 
-const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
+const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
 
-// ── Dedicated read-only clients — completely independent of wallet state ───────
-const mainnetClient = createPublicClient({
-  chain: hashkeyMainnet,
-  transport: http('https://mainnet.hsk.xyz'),
-});
-
+// ── Dedicated read-only client — completely independent of wallet state ────────
 const testnetClient = createPublicClient({
-  chain: hashkeyTestnet,
-  transport: http('https://testnet.hsk.xyz'),
+  chain: flareTestnet,
+  transport: http('https://coston2-api.flare.network/ext/C/rpc'),
 });
 
 interface LinkData {
@@ -76,9 +71,9 @@ function PageHeader() {
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10, padding: '14px 24px' }}>
       <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-        <img src="/logo.png" alt="HashKey Pay" style={{ width: 26, height: 26, borderRadius: 7, objectFit: 'cover' }} />
+        <img src="/logo.png" alt="FlarePay" style={{ width: 26, height: 26, borderRadius: 7, objectFit: 'cover' }} />
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground-muted)', letterSpacing: '-0.2px' }}>
-          HashKey<span style={{ color: 'var(--primary)' }}>Pay</span>
+          Flare<span style={{ color: 'var(--primary)' }}>Pay</span>
         </span>
       </a>
     </div>
@@ -116,32 +111,27 @@ export default function PayPage() {
     setFetching(true);
     setNotFound(false);
 
-    // Try both chains using dedicated read-only clients.
-    // This works even with no wallet connected, on any browser, with any extension.
-    const candidates = [
-      { chainId: hashkeyMainnet.id, readClient: mainnetClient, addr: CONTRACT_ADDRESSES[hashkeyMainnet.id] },
-      { chainId: hashkeyTestnet.id, readClient: testnetClient, addr: CONTRACT_ADDRESSES[hashkeyTestnet.id] },
-    ];
+    // Read-only client — works even with no wallet connected, on any browser.
+    const chainId = flareTestnet.id;
+    const addr = CONTRACT_ADDRESSES[chainId];
 
-    for (const { chainId, readClient, addr } of candidates) {
-      try {
-        const data = await readClient.readContract({
-          address: addr, abi: PROTECTED_PAY_ABI,
-          functionName: 'getPaymentLink', args: [linkId as `0x${string}`],
-        }) as LinkData;
-        if (data && data.creator !== '0x0000000000000000000000000000000000000000') {
-          setLink(data);
-          setDetectedChainId(chainId);
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const user = await readClient.readContract({ address: addr, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [data.creator as `0x${string}`] }) as any;
-            if (user?.username) setCreatorName(user.username);
-          } catch { /* no username */ }
-          setFetching(false);
-          return;
-        }
-      } catch { /* not on this chain, try next */ }
-    }
+    try {
+      const data = await testnetClient.readContract({
+        address: addr, abi: PROTECTED_PAY_ABI,
+        functionName: 'getPaymentLink', args: [linkId as `0x${string}`],
+      }) as LinkData;
+      if (data && data.creator !== '0x0000000000000000000000000000000000000000') {
+        setLink(data);
+        setDetectedChainId(chainId);
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const user = await testnetClient.readContract({ address: addr, abi: PROTECTED_PAY_ABI, functionName: 'getUser', args: [data.creator as `0x${string}`] }) as any;
+          if (user?.username) setCreatorName(user.username);
+        } catch { /* no username */ }
+        setFetching(false);
+        return;
+      }
+    } catch { /* not found */ }
 
     setNotFound(true);
     setFetching(false);
@@ -179,7 +169,7 @@ export default function PayPage() {
   }, [link, linkId, remarks, customAmt, writeContractAsync, isConnected, detectedChainId, contractAddress]);
 
   const handleDownloadInvoice = useCallback((l: LinkData, txH?: string) => {
-    const explorer = detectedChainId ? EXPLORER_URLS[detectedChainId] : EXPLORER_URLS[hashkeyTestnet.id];
+    const explorer = detectedChainId ? EXPLORER_URLS[detectedChainId] : EXPLORER_URLS[flareTestnet.id];
     const amtDisplay = l.amount === 0n
       ? 'Custom'
       : `${parseFloat(formatEther(l.amount)).toFixed(4)} ${NATIVE}`;
@@ -239,7 +229,7 @@ export default function PayPage() {
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', marginBottom: 8 }}>Link Not Found</h1>
             <p style={{ fontSize: 13, color: 'var(--foreground-muted)', lineHeight: 1.6, marginBottom: 24 }}>This payment link doesn&apos;t exist or has been removed.</p>
             <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', borderRadius: 999, background: 'var(--primary)', color: 'var(--primary-fg)', textDecoration: 'none', fontWeight: 700, fontSize: 14 }}>
-              Go to HashKey Pay
+              Go to FlarePay
             </a>
           </div>
         </div>
@@ -301,7 +291,7 @@ export default function PayPage() {
               {effectiveTxHash && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, marginTop: 4 }}>
                   <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Transaction</span>
-                  <a href={`${detectedChainId ? EXPLORER_URLS[detectedChainId] : EXPLORER_URLS[hashkeyTestnet.id]}/tx/${effectiveTxHash}`} target="_blank" rel="noopener noreferrer"
+                  <a href={`${detectedChainId ? EXPLORER_URLS[detectedChainId] : EXPLORER_URLS[flareTestnet.id]}/tx/${effectiveTxHash}`} target="_blank" rel="noopener noreferrer"
                     style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'monospace', color: 'var(--primary)', textDecoration: 'none' }}>
                     {shortAddress(effectiveTxHash)} <ExternalLink size={10} />
                   </a>
@@ -327,7 +317,7 @@ export default function PayPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <Shield size={11} color="var(--foreground-subtle)" />
-              <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Secured by HashKey Pay · HashKey Chain</span>
+              <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Secured by FlarePay · Flare Testnet Coston2</span>
             </div>
           </div>
         </div>
@@ -442,7 +432,7 @@ export default function PayPage() {
           {/* Trust line */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Shield size={11} color="var(--foreground-subtle)" />
-            <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Secured by HashKey Pay · HashKey Chain</span>
+            <span style={{ fontSize: 11, color: 'var(--foreground-subtle)' }}>Secured by FlarePay · Flare Testnet Coston2</span>
           </div>
         </div>
       </div>

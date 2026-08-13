@@ -70,14 +70,14 @@ export const LINK_STATUS_LABEL: Record<number, string> = {
 
 // ── Format helpers ─────────────────────────────────────────────────────────────
 export function formatPOT(raw: string): string {
-  if (!raw || raw === '0') return '0 HSK';
+  const symbol = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
+  if (!raw || raw === '0') return `0 ${symbol}`;
   try {
     const wei = BigInt(raw.replace(/,/g, ''));
     const formatted = formatNative(wei);
-    const symbol = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
     return `${formatted} ${symbol}`;
   } catch {
-    return '— HSK';
+    return `— ${symbol}`;
   }
 }
 

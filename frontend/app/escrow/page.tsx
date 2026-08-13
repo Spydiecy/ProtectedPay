@@ -11,7 +11,7 @@ import WalletGuard from '../components/WalletGuard';
 import Toast, { ToastType } from '../components/Toast';
 import { Lock, ArrowDownCircle, RotateCcw, RefreshCw, AtSign, Coins, CheckCircle2 } from 'lucide-react';
 
-const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'HSK';
+const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
 
 // Minimal ERC-20 ABI — just what we need
 const ERC20_ABI = [
@@ -200,7 +200,7 @@ function EscrowContent() {
   return (
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>HashKey Pay</p>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>FlarePay</p>
         <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-1px' }}>Protected Transfer</h1>
         <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginTop: 4 }}>Lock funds until the recipient claims them</p>
       </div>

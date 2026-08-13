@@ -4,7 +4,7 @@ import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, useTheme } from 'next-themes';
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
-import { wagmiConfig, hashkeyTestnet } from '../lib/wagmi';
+import { wagmiConfig, flareTestnet } from '../lib/wagmi';
 import '@rainbow-me/rainbowkit/styles.css';
 import { useEffect, useState } from 'react';
 
@@ -44,10 +44,10 @@ function RainbowKitWrapper({ children }: { children: React.ReactNode }) {
   return (
     <RainbowKitProvider
       theme={theme}
-      initialChain={hashkeyTestnet.id}
+      initialChain={flareTestnet.id}
       appInfo={{
-        appName: 'HashKey Pay',
-        learnMoreUrl: 'https://github.com/Spydiecy/HashkeyPay',
+        appName: 'FlarePay',
+        learnMoreUrl: 'https://github.com/Spydiecy/FlarePay',
       }}
     >
       {children}
