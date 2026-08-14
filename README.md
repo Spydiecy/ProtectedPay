@@ -191,4 +191,4 @@ Most "group payment" flows require someone to collect money and then pay out. Fl
 
 ---
 
-**[Follow on X](https://x.com/FlarePay) · [View on GitHub](https://github.com/Spydiecy/FlarePay)**
+**[Follow on X](https://x.com/flarepay_) · [View on GitHub](https://github.com/Spydiecy/FlarePay)**
