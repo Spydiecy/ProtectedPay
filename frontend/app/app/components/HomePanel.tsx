@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { parseEther } from 'viem';
+import { parseEther, formatEther, formatUnits } from 'viem';
+import { getKnownToken } from '../../lib/tokens';
 import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
 import { useHistory, formatPOT, EscrowRecord, GroupRecord, BatchRecord, TokenEscrowRecord, PaymentLinkRecord } from '../../hooks/useHistory';
 import { PROTECTED_PAY_ABI, ESCROW_STATUS_LABEL } from '../../lib/abi';
 import { shortAddress } from '../../lib/wagmi';
 import { useContractAddress } from '../../hooks/useContract';
 import Toast, { ToastType } from '../../components/Toast';
+import UsdValue from '../../components/UsdValue';
 import { AppTab } from './Sidebar';
 import {
   Lock, Users, Zap, History, ArrowRight,
@@ -29,7 +31,13 @@ export default function HomePanel({ onTabChange }: { onTabChange: (tab: AppTab) 
   const { address } = useAccount();
   const chainId     = useChainId();
   const client      = usePublicClient();
-  const { escrows, tokenEscrows, groups, batches, paymentLinks, formattedBalance, loading: histLoading, refresh } = useHistory();
+  const { escrows, tokenEscrows, groups, batches, paymentLinks, balance, formattedBalance, loading: histLoading, refresh } = useHistory();
+
+  // Native balance as a human amount, for the live USD equivalent.
+  const balanceRaw = (() => {
+    if (!balance) return null;
+    try { return formatEther(BigInt(balance)); } catch { return null; }
+  })();
   const { writeContractAsync } = useWriteContract();
 
   const [profile,  setProfile]  = useState<UserProfile | null>(null);
@@ -147,7 +155,17 @@ export default function HomePanel({ onTabChange }: { onTabChange: (tab: AppTab) 
             <p style={{ fontSize: 32, fontWeight: 800, color: 'var(--on-primary-container)', letterSpacing: '-1.5px', lineHeight: 1, marginTop: 12 }}>
               {formattedBalance ?? '—'}
             </p>
-            <p style={{ fontSize: 12, color: 'var(--on-primary-container)', opacity: 0.55, marginTop: 6 }}>Available</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              <p style={{ fontSize: 12, color: 'var(--on-primary-container)', opacity: 0.55 }}>Available</p>
+              {balanceRaw && (
+                <UsdValue
+                  symbol={process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR'}
+                  amount={balanceRaw}
+                  size={12}
+                  style={{ color: 'var(--on-primary-container)', opacity: 0.75 }}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -198,8 +216,9 @@ export default function HomePanel({ onTabChange }: { onTabChange: (tab: AppTab) 
                         {isSender ? <ArrowUpRight size={16} color="var(--foreground-muted)" /> : <ArrowDownLeft size={16} color="var(--primary)" />}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>{formatPOT(e.amount)}</span>
+                          <UsdValue symbol={process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR'} amount={formatEther(BigInt(e.amount || '0'))} />
                           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--foreground-subtle)', padding: '2px 7px', borderRadius: 999, background: 'var(--surface-elevated)', border: '1px solid var(--border)' }}>{statusLabel}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
@@ -238,17 +257,27 @@ export default function HomePanel({ onTabChange }: { onTabChange: (tab: AppTab) 
                 const e = txn.data as TokenEscrowRecord;
                 const isSender = e.sender.toLowerCase() === addr.toLowerCase();
                 const statusLabel = ESCROW_STATUS_LABEL[Number(e.status)] ?? e.status;
+                const known = getKnownToken(e.token);
+                const amtRaw = (() => { try { return formatUnits(BigInt(e.amount), known?.decimals ?? 18); } catch { return null; } })();
                 return (
                   <div key={`te-${e.id}`} style={{ padding: '14px 18px', borderRadius: 12, background: 'var(--surface-card)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(251,191,36,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Coins size={16} color="var(--warning)" />
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(251,191,36,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                      {known
+                        ? <img src={known.logo} alt={known.symbol} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} onError={ev => { (ev.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                        : <Coins size={16} color="var(--warning)" />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Token Escrow</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+                          {known ? known.symbol : 'Token'} Escrow
+                        </span>
+                        {known && amtRaw && <UsdValue symbol={known.symbol} amount={amtRaw} />}
                         <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 999, background: 'var(--surface-elevated)', border: '1px solid var(--border)', color: 'var(--foreground-subtle)', fontWeight: 600 }}>{statusLabel}</span>
                       </div>
-                      <p style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>{isSender ? 'Sent to' : 'Received from'} {shortAddress(isSender ? e.recipient : e.sender)}</p>
+                      <p style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>
+                        {amtRaw && `${parseFloat(amtRaw).toLocaleString('en-US', { maximumFractionDigits: 6 })} · `}
+                        {isSender ? 'Sent to' : 'Received from'} {shortAddress(isSender ? e.recipient : e.sender)}
+                      </p>
                     </div>
                     <span style={{ fontSize: 11, color: 'var(--foreground-subtle)', flexShrink: 0 }}>#{e.id}</span>
                   </div>

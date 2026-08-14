@@ -53,6 +53,15 @@ Full on-chain history across all features — protected transfers, token escrows
 | Gas Token | C2FLR |
 | Faucet | [faucet.flare.network](https://faucet.flare.network/) |
 
+### Assets & Oracles (Coston2)
+
+| Item | Address |
+|---|---|
+| FXRP (FTestXRP) | `0x0b6A3645c240605887a5532109323A3E12273dc7` |
+| USDT0 | `0xC1A5B41512496B80903D1f32d6dEa3a73212E71F` |
+| FtsoV2 (via registry) | `0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d` |
+| FlareContractRegistry | `0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019` |
+
 ---
 
 ## Why Flare
@@ -67,13 +76,60 @@ Flare is a high-performance EVM-compatible blockchain built for decentralized da
 
 ---
 
+## How This Project Uses Flare
+
+FlarePay is deployed as an EVM smart contract on **Flare Testnet Coston2** (chain ID 114), where every payment primitive — protected transfers, group splits, batch payments and payment links — settles natively in C2FLR. Beyond the native token, it escrows **FXRP** (the FAssets 1:1 representation of XRP) and **USDT0** as first-class preset assets, so users pick them from a dropdown instead of hunting down contract addresses. Live **FTSOv2** block-latency feeds are read on top of that to show a "≈ $X" USD equivalent beside every amount, pulling FLR/USD, XRP/USD and USDT/USD directly from Flare's enshrined oracle rather than a third-party price API. The result is a payment layer where the asset, the settlement and the pricing all come from Flare's own protocol stack.
+
+### Built before this hackathon (ProtectedPay core)
+
+- Protected transfer escrow — lock, claim, refund for the native token
+- Generic ERC-20 escrow via a pasted token contract address
+- Group split payments with auto-release and contributor withdrawals
+- Atomic batch payments — one transaction, many recipients
+- Payment links with QR codes and downloadable PDF invoices
+- On-chain username registry with `@name` resolution
+- PayBot AI assistant and full transaction history UI
+
+### Added during this hackathon (Flare integration)
+
+- **Migrated the whole app to Flare Testnet Coston2** — chain config, RPC, explorer, C2FLR gas token, faucet access, single-network wallet flow
+- **FXRP as a preset asset** — selectable by name with its logo, no address paste, correct 6-decimal handling
+- **USDT0 as a preset asset** — same one-click selection path
+- **FTSOv2 live pricing** — `FlarePayPriceFeed.sol` exposes `getUsdPrice(bytes21)` via `ContractRegistry.getTestFtsoV2()`; the frontend resolves `FtsoV2` through the `FlareContractRegistry` and renders "≈ $X" next to amounts in escrow, history, dashboard balance and payment-link flows
+- **Allowance-aware approval flow** — the two-step ERC-20 approve → create sequence now reads the real on-chain allowance, so existing approvals are detected and no one gets stuck re-approving
+
+---
+
+## FTSOv2 Price Feeds
+
+USD equivalents come from Flare's native oracle, not an off-chain price API.
+
+| Asset | Feed | Feed ID |
+|---|---|---|
+| C2FLR (native) | FLR/USD | `0x01464c522f55534400000000000000000000000000` |
+| FXRP | XRP/USD | `0x015852502f55534400000000000000000000000000` |
+| USDT0 | USDT/USD | `0x01555344542f555344000000000000000000000000` |
+
+`contracts/FlarePayPriceFeed.sol` is the on-chain adapter, exposing:
+
+```solidity
+function getUsdPrice(bytes21 feedId)
+    external view returns (uint256 value, int8 decimals, uint64 timestamp);
+```
+
+It resolves FTSOv2 through `ContractRegistry.getTestFtsoV2()` so no address is ever hardcoded. Block-latency feeds are free to read and update roughly every 1.8 seconds. The contract holds no funds and has no owner — it is a read-only adapter, entirely separate from the escrow logic.
+
+The frontend reads the same feeds directly (`app/lib/ftso.ts` + `app/hooks/usePrices.ts`), resolving `FtsoV2` via the `FlareContractRegistry` at `0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019`, with one shared poller behind every price label. Note each feed reports its own decimals — FLR/USD returns 8, XRP/USD and USDT/USD return 6 — so decimals are always applied per feed rather than assumed.
+
+---
+
 ## Getting Test Funds
 
 FlarePay runs entirely on the Flare Testnet Coston2. Before you can send transactions, grab free C2FLR from the faucet:
 
 1. Click **Get Test Funds** in the dashboard sidebar, or visit [faucet.flare.network](https://faucet.flare.network/) directly
 2. Paste your wallet address
-3. Request funds — C2FLR arrives in your wallet within a few seconds
+3. Request funds — the Coston2 faucet dispenses C2FLR plus test **FXRP** and **USDT0**, so you can try both the native and token escrow flows
 
 ---
 
@@ -104,6 +160,8 @@ Most "group payment" flows require someone to collect money and then pay out. Fl
 | Smart Contract | Solidity 0.8.24 (EVM) |
 | Blockchain | Flare Testnet Coston2 (Chain ID: 114) |
 | Gas Token | C2FLR |
+| Assets | C2FLR, FXRP (FAssets), USDT0, any ERC-20 |
+| Oracle | FTSOv2 block-latency feeds via `flare-periphery-contracts` |
 | Frontend | Next.js 16, TypeScript |
 | Wallet | RainbowKit v2 (MetaMask, Rainbow, WalletConnect, Coinbase, Trust) |
 | Chain SDK | wagmi v2 + viem v2 |
@@ -117,6 +175,8 @@ Most "group payment" flows require someone to collect money and then pay out. Fl
 
 - ✅ Protected transfers — native C2FLR with claim and refund
 - ✅ ERC-20 token escrow — approve once, create, claim or refund
+- ✅ FXRP and USDT0 as one-click preset assets, plus any custom ERC-20
+- ✅ Live FTSOv2 USD pricing — "≈ $X" beside every amount
 - ✅ Group split payments — auto-release, contributor tracking, individual withdrawals
 - ✅ Atomic batch transfers — one tx, multiple recipients
 - ✅ Payment links with QR codes and downloadable PDF invoices

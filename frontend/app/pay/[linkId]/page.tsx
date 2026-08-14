@@ -8,6 +8,7 @@ import { PROTECTED_PAY_ABI } from '../../lib/abi';
 import { shortAddress, flareTestnet, CONTRACT_ADDRESSES, EXPLORER_URLS } from '../../lib/wagmi';
 import { useContractAddress } from '../../hooks/useContract';
 import Toast, { ToastType } from '../../components/Toast';
+import UsdValue from '../../components/UsdValue';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { generateInvoicePDF } from '../../lib/invoice';
 import { CheckCircle2, Ban, ArrowRight, ExternalLink, Shield, Copy, Check, Download, Share2 } from 'lucide-react';
@@ -384,6 +385,9 @@ export default function PayPage() {
                     {parseFloat(formatEther(link.amount)).toFixed(4)}
                   </span>
                   <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)', opacity: 0.7 }}>{NATIVE}</span>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <UsdValue symbol={NATIVE} amount={formatEther(link.amount)} size={13} showSource />
                 </div>
               </div>
             )}

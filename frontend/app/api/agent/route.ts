@@ -96,8 +96,8 @@ Steps: **Protected Transfer** tab → recipient (address or @username) → amoun
 Recipient: **Claim** button. Sender: **Refund** button.
 
 ### Protected Token Transfer (ERC-20 Escrow)
-Same as above but for any ERC-20 token. Two steps required:
-1. **Protected Transfer** tab → switch to **ERC-20 Token** → paste token address → **Lookup** → fill fields → **Approve Tokens** (signs approve tx)
+Same as above but for any ERC-20 token. **FXRP** and **USDT0** are preset in the token dropdown — no address needed, just pick them from the list. Any other token can be added via **Custom Token Address**. Two steps required:
+1. **Protected Transfer** tab → switch to **ERC-20 Token** → pick **FXRP**, **USDT0**, or **Custom Token Address** → fill fields → **Approve Tokens** (signs approve tx)
 2. After approval: **Create Token Transfer** (signs createTokenEscrow tx)
 
 ### Group Split Payment
@@ -122,6 +122,9 @@ Say "register username spy" or "I want to register @myname" — I'll check avail
 
 ### Transaction History
 All activity (transfers, groups, batches, links) visible in the **History** tab.
+
+### Live USD Pricing (FTSOv2)
+Every amount in the app shows a "≈ $X" USD equivalent, priced live from Flare's native FTSOv2 oracle (block-latency feeds, ~1.8s updates, free to read). C2FLR uses the FLR/USD feed, FXRP uses XRP/USD, and USDT0 uses USDT/USD. This is Flare's enshrined oracle, not a third-party price API — if asked where prices come from, say FTSOv2.
 
 ## What you can do with tools
 - Look up @username → address (resolveUsername)
@@ -311,9 +314,9 @@ export async function POST(req: Request) {
       }),
 
       buildTokenEscrow: tool({
-        description: 'Give steps for creating a protected ERC-20 token transfer (two steps: approve then create)',
+        description: 'Give steps for creating a protected ERC-20 token transfer (two steps: approve then create). FXRP and USDT0 are preset tokens in the UI — pass "FXRP" or "USDT0" as tokenAddress (or the symbol name) instead of asking the user for a contract address. Only ask for a raw 0x address if the user wants a different, unlisted token.',
         parameters: z.object({
-          tokenAddress: z.string().describe('ERC-20 token contract address'),
+          tokenAddress: z.string().describe('ERC-20 token contract address, OR the symbol "FXRP" / "USDT0" for the preset tokens'),
           recipient: z.string().describe('Recipient address or @username'),
           amount: z.string().describe('Token amount'),
           remarks: z.string(),
@@ -326,7 +329,14 @@ export async function POST(req: Request) {
             if (!resolved || resolved === '0x0000000000000000000000000000000000000000') return { error: `@${uname} not found` };
             addr = resolved;
           }
-          return { tokenAddress, resolvedAddress: addr, amount, remarks, steps: [`Go to **Protected Transfer** tab`, `Switch to **ERC-20 Token**`, `Token: ${tokenAddress}`, `Recipient: ${addr}`, `Amount: ${amount}`, `Click **Approve Tokens** (wallet popup 1)`, `Click **Create Token Transfer** (wallet popup 2)`] };
+          const PRESETS: Record<string, string> = {
+            FXRP: '0x0b6A3645c240605887a5532109323A3E12273dc7',
+            USDT0: '0xC1A5B41512496B80903D1f32d6dEa3a73212E71F',
+          };
+          const presetSymbol = tokenAddress.toUpperCase();
+          const resolvedTokenAddress = PRESETS[presetSymbol] ?? tokenAddress;
+          const tokenLabel = PRESETS[presetSymbol] ? presetSymbol : resolvedTokenAddress;
+          return { tokenAddress: resolvedTokenAddress, resolvedAddress: addr, amount, remarks, steps: [`Go to **Protected Transfer** tab`, `Switch to **ERC-20 Token**`, `Token: select **${tokenLabel}** from the token dropdown${PRESETS[presetSymbol] ? '' : ' (or choose **Custom Token Address** and paste it)'}`, `Recipient: ${addr}`, `Amount: ${amount}`, `Click **Approve Tokens** (wallet popup 1)`, `Click **Create Token Transfer** (wallet popup 2)`] };
         },
       }),
 

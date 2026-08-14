@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { formatEther } from 'viem';
+import { formatEther, formatUnits } from 'viem';
 import { useAccount, usePublicClient, useChainId } from 'wagmi';
 import { useHistory, formatPOT, EscrowRecord, GroupRecord, BatchRecord, TokenEscrowRecord, PaymentLinkRecord } from '../hooks/useHistory';
 import { PROTECTED_PAY_ABI, ESCROW_STATUS_LABEL, GROUP_STATUS_LABEL } from '../lib/abi';
 import { shortAddress } from '../lib/wagmi';
 import { useContractAddress } from '../hooks/useContract';
 import WalletGuard from '../components/WalletGuard';
+import UsdValue from '../components/UsdValue';
+import { getKnownToken } from '../lib/tokens';
 import {
   RefreshCw, ArrowUpRight, ArrowDownLeft, Users, Zap, History,
   Copy, Check, ChevronDown, ChevronUp, Coins, Link2, CheckCircle2, Ban, ExternalLink,
@@ -398,8 +400,9 @@ function HistoryContent() {
                     {isSender ? <ArrowUpRight size={18} color="var(--foreground-muted)" /> : <ArrowDownLeft size={18} color="var(--primary)" />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>{formatPOT(e.amount)}</span>
+                      <UsdValue symbol={NATIVE} amount={formatEther(BigInt(e.amount || '0'))} />
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: isSender ? 'rgba(0,0,0,0.06)' : 'rgba(45,212,191,0.12)', color: isSender ? 'var(--foreground-muted)' : 'var(--primary)' }}>
                         {isSender ? 'SENT' : 'RECEIVED'}
                       </span>
@@ -424,15 +427,23 @@ function HistoryContent() {
               const counterAddr = isSender ? e.recipient : e.sender;
               const statusLabel = ESCROW_STATUS_LABEL[Number(e.status)] ?? e.status;
               const sc          = statusLabel === 'Refunded' ? 'var(--foreground-muted)' : 'var(--primary)';
-              const amtDisplay  = (() => { try { return `${parseFloat(formatEther(BigInt(e.amount))).toFixed(6)} TOKEN`; } catch { return e.amount; } })();
+              const known       = getKnownToken(e.token);
+              const amtRaw      = (() => {
+                try { return formatUnits(BigInt(e.amount), known?.decimals ?? 18); }
+                catch { return '0'; }
+              })();
+              const amtDisplay  = `${parseFloat(amtRaw).toLocaleString('en-US', { maximumFractionDigits: 6 })} ${known?.symbol ?? 'TOKEN'}`;
               return (
                 <div key={`te-${e.id}`} style={{ padding: '16px 20px', borderRadius: 14, background: 'var(--surface-card)', border: '1px solid var(--border)', marginBottom: 8, display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: isSender ? 'rgba(251,191,36,0.1)' : 'rgba(45,212,191,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
-                    <Coins size={18} color={isSender ? 'var(--warning)' : 'var(--primary)'} />
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: isSender ? 'rgba(251,191,36,0.1)' : 'rgba(45,212,191,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2, overflow: 'hidden' }}>
+                    {known
+                      ? <img src={known.logo} alt={known.symbol} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} onError={ev => { (ev.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                      : <Coins size={18} color={isSender ? 'var(--warning)' : 'var(--primary)'} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>{amtDisplay}</span>
+                      {known && <UsdValue symbol={known.symbol} amount={amtRaw} />}
                       <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'rgba(251,191,36,0.12)', color: 'var(--warning)' }}>TOKEN</span>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: isSender ? 'rgba(0,0,0,0.06)' : 'rgba(45,212,191,0.12)', color: isSender ? 'var(--foreground-muted)' : 'var(--primary)' }}>
                         {isSender ? 'SENT' : 'RECEIVED'}

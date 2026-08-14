@@ -2,24 +2,27 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { parseUnits, formatUnits, parseEther, formatEther } from 'viem';
-import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
+import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt, useChainId, useBalance } from 'wagmi';
 import { useHistory, formatPOT, EscrowRecord, TokenEscrowRecord } from '../hooks/useHistory';
 import { PROTECTED_PAY_ABI, ESCROW_STATUS_LABEL } from '../lib/abi';
 import { shortAddress } from '../lib/wagmi';
 import { useContractAddress } from '../hooks/useContract';
 import WalletGuard from '../components/WalletGuard';
 import Toast, { ToastType } from '../components/Toast';
-import { Lock, ArrowDownCircle, RotateCcw, RefreshCw, AtSign, Coins, CheckCircle2 } from 'lucide-react';
+import UsdValue from '../components/UsdValue';
+import { PRESET_TOKENS, getKnownToken } from '../lib/tokens';
+import { Lock, ArrowDownCircle, RotateCcw, RefreshCw, AtSign, Coins, CheckCircle2, ChevronDown, Check, PenLine, Wallet } from 'lucide-react';
 
 const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
 
 // Minimal ERC-20 ABI — just what we need
 const ERC20_ABI = [
-  { name: 'approve',  type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
-  { name: 'decimals', type: 'function', stateMutability: 'view',       inputs: [],                                                                          outputs: [{ name: '', type: 'uint8'   }] },
-  { name: 'symbol',   type: 'function', stateMutability: 'view',       inputs: [],                                                                          outputs: [{ name: '', type: 'string'  }] },
-  { name: 'name',     type: 'function', stateMutability: 'view',       inputs: [],                                                                          outputs: [{ name: '', type: 'string'  }] },
-  { name: 'allowance',type: 'function', stateMutability: 'view',       inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'approve',   type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
+  { name: 'decimals',  type: 'function', stateMutability: 'view',       inputs: [],                                                                          outputs: [{ name: '', type: 'uint8'   }] },
+  { name: 'symbol',    type: 'function', stateMutability: 'view',       inputs: [],                                                                          outputs: [{ name: '', type: 'string'  }] },
+  { name: 'name',      type: 'function', stateMutability: 'view',       inputs: [],                                                                          outputs: [{ name: '', type: 'string'  }] },
+  { name: 'allowance', type: 'function', stateMutability: 'view',       inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'balanceOf', type: 'function', stateMutability: 'view',       inputs: [{ name: 'account', type: 'address' }],                                     outputs: [{ name: '', type: 'uint256' }] },
 ] as const;
 
 const INPUT: React.CSSProperties = {
@@ -30,6 +33,16 @@ const INPUT: React.CSSProperties = {
 
 interface TokenInfo { name: string; symbol: string; decimals: number; }
 
+function TokenLogo({ src, alt, size = 18 }: { src: string; alt: string; size?: number }) {
+  return (
+    <img
+      src={src} alt={alt}
+      style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+    />
+  );
+}
+
 function EscrowContent() {
   const contractAddress = useContractAddress();
   const chainId = useChainId();
@@ -37,6 +50,7 @@ function EscrowContent() {
   const client = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const { escrows, tokenEscrows, loading: histLoading, refresh } = useHistory();
+  const { data: nativeBalance } = useBalance({ address });
 
   // ── Mode toggle ────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<'native' | 'token'>('native');
@@ -54,27 +68,97 @@ function EscrowContent() {
   const [tokenAddress,   setTokenAddress]   = useState('');
   const [tokenInfo,      setTokenInfo]      = useState<TokenInfo | null>(null);
   const [tokenLookup,    setTokenLookup]    = useState(false);
-  const [approved,       setApproved]       = useState(false);
   const [approving,      setApproving]      = useState(false);
+  const [allowance,      setAllowance]      = useState<bigint>(0n);
+  const [checkingAllowance, setCheckingAllowance] = useState(false);
+  const [tokenBalance,   setTokenBalance]   = useState<bigint | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<typeof PRESET_TOKENS[number] | null>(null);
+  const [tokenPickerOpen,setTokenPickerOpen]= useState(false);
+  const [customToken,    setCustomToken]    = useState(false);
+  // What kind of tx we're currently waiting on — so an approve receipt doesn't
+  // get mistaken for a create receipt (that bug made the approval look lost).
+  const [txKind,         setTxKind]         = useState<'approve' | 'create' | 'action' | null>(null);
 
   const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
   const t = (msg: string, type: ToastType) => setToast({ msg, type });
 
   useEffect(() => { refresh(); }, [address, chainId]); // eslint-disable-line
-  useEffect(() => {
-    if (isSuccess) {
-      t('Done!', 'success');
-      refresh();
-      setTxHash(undefined);
-      // Reset approve state after create tx succeeds
-      if (mode === 'token') setApproved(false);
+
+  // ── Read the live on-chain allowance ──────────────────────────────────────
+  // Source of truth for "can I create the transfer yet?". Because we read it
+  // from the chain, an approval you already granted earlier is picked up too —
+  // no need to approve the same token twice.
+  const readAllowance = useCallback(async (tokenOverride?: string): Promise<bigint> => {
+    const tAddr = (tokenOverride ?? tokenAddress) as `0x${string}`;
+    if (!tAddr || !tAddr.startsWith('0x') || tAddr.length !== 42 || !address || !client) {
+      setAllowance(0n);
+      return 0n;
     }
+    setCheckingAllowance(true);
+    try {
+      const current = await client.readContract({
+        address: tAddr, abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [address, contractAddress],
+      }) as bigint;
+      setAllowance(current);
+      return current;
+    } catch {
+      setAllowance(0n);
+      return 0n;
+    } finally {
+      setCheckingAllowance(false);
+    }
+  }, [tokenAddress, address, client, contractAddress]);
+
+  // ── Read the user's on-chain token balance ─────────────────────────────────
+  const readTokenBalance = useCallback(async (tokenOverride?: string) => {
+    const tAddr = (tokenOverride ?? tokenAddress) as `0x${string}`;
+    if (!tAddr || !tAddr.startsWith('0x') || tAddr.length !== 42 || !address || !client) {
+      setTokenBalance(null);
+      return;
+    }
+    setBalanceLoading(true);
+    try {
+      const bal = await client.readContract({
+        address: tAddr, abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [address],
+      }) as bigint;
+      setTokenBalance(bal);
+    } catch {
+      setTokenBalance(null);
+    } finally {
+      setBalanceLoading(false);
+    }
+  }, [tokenAddress, address, client]);
+
+  useEffect(() => {
+    if (!isSuccess) return;
+
+    if (txKind === 'approve') {
+      // Approval landed — re-read the allowance instead of clearing it.
+      t('Approval confirmed — you can create the transfer now', 'success');
+      readAllowance();
+    } else {
+      t('Done!', 'success');
+      if (txKind === 'create') {
+        // Allowance and balance both changed after the transfer — re-read them.
+        readAllowance();
+        readTokenBalance();
+      }
+      refresh();
+    }
+    setTxHash(undefined);
+    setTxKind(null);
   }, [isSuccess]); // eslint-disable-line
 
   // Reset token state when mode switches
   useEffect(() => {
-    setTokenAddress(''); setTokenInfo(null); setApproved(false);
+    setTokenAddress(''); setTokenInfo(null); setAllowance(0n);
     setAmount(''); setRecipient(''); setResolvedRecipient(''); setRemarks('');
+    setSelectedPreset(null); setCustomToken(false); setTokenPickerOpen(false);
   }, [mode]);
 
   const resolveIfUsername = useCallback(async (val: string) => {
@@ -93,7 +177,7 @@ function EscrowContent() {
   // ── Fetch token info ───────────────────────────────────────────────────────
   const lookupToken = useCallback(async (addr: string) => {
     if (!addr || !addr.startsWith('0x') || addr.length !== 42 || !client) return;
-    setTokenLookup(true); setTokenInfo(null); setApproved(false);
+    setTokenLookup(true); setTokenInfo(null);
     try {
       const [sym, nm, dec] = await Promise.all([
         client.readContract({ address: addr as `0x${string}`, abi: ERC20_ABI, functionName: 'symbol' }),
@@ -102,31 +186,51 @@ function EscrowContent() {
       ]);
       setTokenInfo({ symbol: sym as string, name: nm as string, decimals: Number(dec) });
       t(`Found: ${nm} (${sym})`, 'success');
+      readAllowance(addr);
+      readTokenBalance(addr);
     } catch { t('Could not read token — check the address', 'error'); setTokenInfo(null); }
     finally { setTokenLookup(false); }
-  }, [client]);
+  }, [client, readAllowance, readTokenBalance]);
+
+  const selectPreset = useCallback((preset: typeof PRESET_TOKENS[number]) => {
+    setSelectedPreset(preset);
+    setCustomToken(false);
+    setTokenPickerOpen(false);
+    setTokenAddress(preset.address);
+    // Preset tokens are known ahead of time — skip the on-chain lookup entirely.
+    setTokenInfo({ name: preset.name, symbol: preset.symbol, decimals: preset.decimals });
+    readAllowance(preset.address);
+    readTokenBalance(preset.address);
+  }, [readAllowance, readTokenBalance]);
+
+  const selectCustomToken = useCallback(() => {
+    setSelectedPreset(null);
+    setCustomToken(true);
+    setTokenPickerOpen(false);
+    setTokenAddress('');
+    setTokenInfo(null);
+    setAllowance(0n);
+    setTokenBalance(null);
+  }, []);
 
   // ── Approve ────────────────────────────────────────────────────────────────
   const handleApprove = useCallback(async () => {
     if (!tokenInfo || !amount || !tokenAddress || !address) { t('Fill in token and amount first', 'error'); return; }
-    setApproving(true); t('Approving…', 'loading');
+    setApproving(true); t('Confirm the approval in your wallet…', 'loading');
     try {
-      const decimals  = tokenInfo.decimals;
-      const amountWei = parseUnits(amount, decimals);
+      const amountWei = parseUnits(amount, tokenInfo.decimals);
       const hash = await writeContractAsync({
         address: tokenAddress as `0x${string}`,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [contractAddress, amountWei],
       });
-      // Wait for the approval tx to be mined
+      setTxKind('approve');
       setTxHash(hash);
-      // Optimistically mark as approved — the isSuccess handler will clear after create
-      setApproved(true);
-      t('Approved! Now create the transfer.', 'success');
+      t('Approving… waiting for confirmation', 'loading');
     } catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Approval failed', 'error'); }
     finally { setApproving(false); }
-  }, [tokenInfo, amount, tokenAddress, address, writeContractAsync]);
+  }, [tokenInfo, amount, tokenAddress, address, writeContractAsync, contractAddress]);
 
   // ── Create native escrow ───────────────────────────────────────────────────
   const handleCreate = useCallback(async () => {
@@ -139,6 +243,7 @@ function EscrowContent() {
         args: [effectiveRecipient, remarks],
         value: parseEther(amount),
       });
+      setTxKind('action');
       setTxHash(hash);
       setRecipient(''); setResolvedRecipient(''); setAmount(''); setRemarks('');
     } catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
@@ -150,50 +255,82 @@ function EscrowContent() {
     if (!effectiveRecipient || !amount || !remarks || !tokenInfo || !tokenAddress) {
       t('Fill all fields', 'error'); return;
     }
-    if (!approved) { t('Approve the token first', 'error'); return; }
+    const amountWei = parseUnits(amount, tokenInfo.decimals);
+
+    // Re-read the allowance right before submitting so we never send a tx that
+    // is guaranteed to revert on transferFrom.
+    const current = await readAllowance();
+    if (current < amountWei) {
+      t('Approve this amount first', 'error');
+      return;
+    }
+
     setLoading(true); t('Creating token transfer…', 'loading');
     try {
-      const amountWei = parseUnits(amount, tokenInfo.decimals);
       const hash = await writeContractAsync({
         address: contractAddress, abi: PROTECTED_PAY_ABI,
         functionName: 'createTokenEscrow',
         args: [tokenAddress as `0x${string}`, effectiveRecipient, amountWei, remarks],
       });
+      setTxKind('create');
       setTxHash(hash);
       setRecipient(''); setResolvedRecipient(''); setAmount(''); setRemarks('');
-      setApproved(false);
     } catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
-  }, [effectiveRecipient, amount, remarks, tokenInfo, tokenAddress, approved, writeContractAsync]);
+  }, [effectiveRecipient, amount, remarks, tokenInfo, tokenAddress, writeContractAsync, contractAddress, readAllowance]);
 
   // ── Claim / Refund ────────────────────────────────────────────────────────
   const handleClaim = useCallback(async (id: string) => {
     setLoading(true); t('Claiming…', 'loading');
-    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'claimEscrow', args: [BigInt(id)] }); setTxHash(hash); }
+    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'claimEscrow', args: [BigInt(id)] }); setTxKind('action'); setTxHash(hash); }
     catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
-  }, [writeContractAsync]);
+  }, [writeContractAsync, contractAddress]);
 
   const handleRefund = useCallback(async (id: string) => {
     setLoading(true); t('Refunding…', 'loading');
-    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'refundEscrow', args: [BigInt(id)] }); setTxHash(hash); }
+    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'refundEscrow', args: [BigInt(id)] }); setTxKind('action'); setTxHash(hash); }
     catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
-  }, [writeContractAsync]);
+  }, [writeContractAsync, contractAddress]);
 
   const handleClaimToken = useCallback(async (id: string) => {
     setLoading(true); t('Claiming tokens…', 'loading');
-    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'claimTokenEscrow', args: [BigInt(id)] }); setTxHash(hash); }
+    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'claimTokenEscrow', args: [BigInt(id)] }); setTxKind('action'); setTxHash(hash); }
     catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
-  }, [writeContractAsync]);
+  }, [writeContractAsync, contractAddress]);
 
   const handleRefundToken = useCallback(async (id: string) => {
     setLoading(true); t('Refunding tokens…', 'loading');
-    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'refundTokenEscrow', args: [BigInt(id)] }); setTxHash(hash); }
+    try { const hash = await writeContractAsync({ address: contractAddress, abi: PROTECTED_PAY_ABI, functionName: 'refundTokenEscrow', args: [BigInt(id)] }); setTxKind('action'); setTxHash(hash); }
     catch (e: unknown) { t(e instanceof Error ? e.message.slice(0, 80) : 'Failed', 'error'); }
     finally { setLoading(false); }
-  }, [writeContractAsync]);
+  }, [writeContractAsync, contractAddress]);
+
+  // Close token picker dropdown when clicking outside
+  useEffect(() => {
+    if (!tokenPickerOpen) return;
+    const close = () => setTokenPickerOpen(false);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [tokenPickerOpen]);
+
+  // Re-read the allowance and balance when the connected wallet changes.
+  useEffect(() => {
+    if (mode === 'token' && tokenAddress) { readAllowance(); readTokenBalance(); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, chainId]);
+
+  // ── Derived: is the current allowance enough for the amount entered? ───────
+  const requiredWei = (() => {
+    if (!amount || !tokenInfo) return 0n;
+    try { return parseUnits(amount, tokenInfo.decimals); } catch { return 0n; }
+  })();
+  const hasEnoughAllowance = requiredWei > 0n && allowance >= requiredWei;
+  const allowanceDisplay = tokenInfo && allowance > 0n
+    ? formatUnits(allowance, tokenInfo.decimals)
+    : '0';
 
   const myAddr = (address ?? '').toLowerCase();
 
@@ -223,23 +360,121 @@ function EscrowContent() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* Token address (token mode only) */}
+            {/* Token picker (token mode only) */}
             {mode === 'token' && (
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--foreground-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Token Contract Address</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input value={tokenAddress} onChange={e => { setTokenAddress(e.target.value); setTokenInfo(null); setApproved(false); }}
-                    onBlur={e => lookupToken(e.target.value)}
-                    placeholder="0x… ERC-20 token address"
-                    style={{ ...INPUT, flex: 1, fontFamily: 'monospace', fontSize: 12 }}
-                    onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
-                  />
-                  <button onClick={() => lookupToken(tokenAddress)} disabled={tokenLookup || tokenAddress.length < 42}
-                    style={{ padding: '0 16px', borderRadius: 10, background: 'var(--surface-elevated)', border: '1px solid var(--border)', color: 'var(--foreground)', cursor: 'pointer', fontSize: 13, fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                    {tokenLookup ? '…' : 'Lookup'}
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--foreground-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Token</label>
+
+                {/* Dropdown trigger */}
+                <div style={{ position: 'relative' }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); setTokenPickerOpen(o => !o); }}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '11px 14px', borderRadius: 10, border: '1px solid var(--border)',
+                      background: 'var(--surface-elevated)', cursor: 'pointer', transition: 'border-color 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--primary)')}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = tokenPickerOpen ? 'var(--primary)' : 'var(--border)')}
+                  >
+                    {selectedPreset ? (
+                      <>
+                        <TokenLogo src={selectedPreset.logo} alt={selectedPreset.symbol} />
+                        <span style={{ flex: 1, textAlign: 'left', fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>{selectedPreset.label}</span>
+                      </>
+                    ) : customToken ? (
+                      <>
+                        <PenLine size={16} color="var(--foreground-muted)" style={{ flexShrink: 0 }} />
+                        <span style={{ flex: 1, textAlign: 'left', fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>Custom Token</span>
+                      </>
+                    ) : (
+                      <>
+                        <Coins size={16} color="var(--foreground-subtle)" style={{ flexShrink: 0 }} />
+                        <span style={{ flex: 1, textAlign: 'left', fontSize: 14, color: 'var(--foreground-subtle)' }}>Select a token…</span>
+                      </>
+                    )}
+                    <ChevronDown size={14} color="var(--foreground-muted)" style={{ flexShrink: 0, transform: tokenPickerOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
                   </button>
+
+                  {/* Dropdown menu */}
+                  {tokenPickerOpen && (
+                    <div
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
+                        background: 'var(--surface-card)', border: '1px solid var(--border)',
+                        borderRadius: 12, zIndex: 50, overflow: 'hidden',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                      }}
+                    >
+                      {PRESET_TOKENS.map(preset => {
+                        const isActive = selectedPreset?.address === preset.address;
+                        return (
+                          <button
+                            key={preset.address}
+                            onClick={() => selectPreset(preset)}
+                            style={{
+                              width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                              padding: '11px 14px', border: 'none', cursor: 'pointer',
+                              background: isActive ? 'rgba(45,212,191,0.1)' : 'transparent',
+                              transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-elevated)'; }}
+                            onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                          >
+                            <TokenLogo src={preset.logo} alt={preset.symbol} />
+                            <div style={{ flex: 1, textAlign: 'left' }}>
+                              <p style={{ fontSize: 13, fontWeight: 700, color: isActive ? 'var(--primary)' : 'var(--foreground)', lineHeight: 1.2 }}>{preset.label}</p>
+                              <p style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--foreground-subtle)', lineHeight: 1.2, marginTop: 1 }}>{shortAddress(preset.address)}</p>
+                            </div>
+                            {isActive && <Check size={14} color="var(--primary)" />}
+                          </button>
+                        );
+                      })}
+                      <div style={{ height: 1, background: 'var(--border)' }} />
+                      <button
+                        onClick={selectCustomToken}
+                        style={{
+                          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '11px 14px', border: 'none', cursor: 'pointer',
+                          background: customToken ? 'rgba(45,212,191,0.1)' : 'transparent',
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={e => { if (!customToken) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-elevated)'; }}
+                        onMouseLeave={e => { if (!customToken) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                      >
+                        <PenLine size={16} color={customToken ? 'var(--primary)' : 'var(--foreground-muted)'} style={{ flexShrink: 0 }} />
+                        <span style={{ flex: 1, textAlign: 'left', fontSize: 13, fontWeight: 600, color: customToken ? 'var(--primary)' : 'var(--foreground)' }}>Custom Token Address</span>
+                        {customToken && <Check size={14} color="var(--primary)" />}
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {tokenInfo && (
+
+                {/* Custom address input — only when "Custom Token" is selected */}
+                {customToken && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    <input value={tokenAddress} onChange={e => { setTokenAddress(e.target.value); setTokenInfo(null); setAllowance(0n); setTokenBalance(null); }}
+                      onBlur={e => lookupToken(e.target.value)}
+                      placeholder="0x… ERC-20 token address"
+                      style={{ ...INPUT, flex: 1, fontFamily: 'monospace', fontSize: 12 }}
+                      onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
+                    />
+                    <button onClick={() => lookupToken(tokenAddress)} disabled={tokenLookup || tokenAddress.length < 42}
+                      style={{ padding: '0 16px', borderRadius: 10, background: 'var(--surface-elevated)', border: '1px solid var(--border)', color: 'var(--foreground)', cursor: 'pointer', fontSize: 13, fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      {tokenLookup ? '…' : 'Lookup'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Resolved token info — only shown for custom tokens (presets already show their name in the dropdown) */}
+                {customToken && tokenLookup && (
+                  <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 10, background: 'var(--surface-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <RefreshCw size={13} color="var(--foreground-muted)" style={{ animation: 'spin 1s linear infinite' }} />
+                    <span style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Looking up token…</span>
+                  </div>
+                )}
+                {customToken && tokenInfo && !tokenLookup && (
                   <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(45,212,191,0.08)', border: '1px solid rgba(45,212,191,0.2)', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Coins size={14} color="var(--primary)" />
                     <div>
@@ -268,15 +503,62 @@ function EscrowContent() {
 
             {/* Amount */}
             <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--foreground-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
-                Amount {mode === 'token' ? (tokenInfo ? `(${tokenInfo.symbol})` : '(token)') : `(${NATIVE})`}
-              </label>
-              <input value={amount} onChange={e => { setAmount(e.target.value); setApproved(false); }}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--foreground-muted)', textTransform: 'uppercase' }}>
+                  Amount {mode === 'token' ? (tokenInfo ? `(${tokenInfo.symbol})` : '(select a token first)') : `(${NATIVE})`}
+                </label>
+                {/* Available balance for whichever asset is selected */}
+                {mode === 'native' && nativeBalance && (
+                  <button
+                    onClick={() => setAmount(formatEther(nativeBalance.value))}
+                    title="Use max"
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 11, color: 'var(--foreground-subtle)' }}
+                  >
+                    <Wallet size={11} />
+                    {parseFloat(formatEther(nativeBalance.value)).toLocaleString('en-US', { maximumFractionDigits: 4 })} {NATIVE}
+                    <span style={{ color: 'var(--primary)', fontWeight: 700, marginLeft: 2 }}>MAX</span>
+                  </button>
+                )}
+                {mode === 'token' && tokenInfo && (
+                  <button
+                    onClick={() => tokenBalance != null && setAmount(formatUnits(tokenBalance, tokenInfo.decimals))}
+                    disabled={tokenBalance == null}
+                    title="Use max"
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: tokenBalance != null ? 'pointer' : 'default', padding: 0, fontSize: 11, color: 'var(--foreground-subtle)' }}
+                  >
+                    <Wallet size={11} />
+                    {balanceLoading
+                      ? 'Loading…'
+                      : tokenBalance != null
+                        ? `${parseFloat(formatUnits(tokenBalance, tokenInfo.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 })} ${tokenInfo.symbol}`
+                        : `— ${tokenInfo.symbol}`}
+                    {tokenBalance != null && <span style={{ color: 'var(--primary)', fontWeight: 700, marginLeft: 2 }}>MAX</span>}
+                  </button>
+                )}
+              </div>
+              <input value={amount} onChange={e => setAmount(e.target.value)}
                 type="number" min="0" step="0.0001" placeholder="0.01"
                 style={INPUT}
                 onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
                 onBlur={e => (e.target.style.borderColor = 'var(--border)')}
               />
+              {/* Live USD equivalent from Flare FTSOv2 */}
+              {amount && parseFloat(amount) > 0 && (
+                <div style={{ marginTop: 6, paddingLeft: 2 }}>
+                  <UsdValue
+                    symbol={mode === 'token' ? tokenInfo?.symbol : NATIVE}
+                    amount={amount}
+                    size={12}
+                    showSource
+                  />
+                </div>
+              )}
+              {/* Insufficient balance warning */}
+              {mode === 'token' && tokenInfo && tokenBalance != null && amount && (() => {
+                try { return parseUnits(amount, tokenInfo.decimals) > tokenBalance; } catch { return false; }
+              })() && (
+                <p style={{ fontSize: 11, color: 'var(--error)', marginTop: 6 }}>Insufficient {tokenInfo.symbol} balance</p>
+              )}
             </div>
 
             {/* Remarks */}
@@ -289,32 +571,44 @@ function EscrowContent() {
               />
             </div>
 
-            {/* Token: approve step */}
-            {mode === 'token' && !approved && (
+            {/* Token: approve step — shown until the on-chain allowance covers the amount */}
+            {mode === 'token' && !hasEnoughAllowance && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--surface-elevated)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--foreground-muted)', lineHeight: 1.6 }}>
                   <strong style={{ color: 'var(--foreground)' }}>Step 1:</strong> Approve the contract to spend your tokens.<br />
                   <strong style={{ color: 'var(--foreground)' }}>Step 2:</strong> Create the protected transfer.
+                  {tokenInfo && allowance > 0n && requiredWei > 0n && allowance < requiredWei && (
+                    <>
+                      <br />
+                      <span style={{ color: 'var(--warning)' }}>
+                        Current approval is {allowanceDisplay} {tokenInfo.symbol} — approve {amount} {tokenInfo.symbol} to continue.
+                      </span>
+                    </>
+                  )}
                 </div>
-                <button onClick={handleApprove} disabled={approving || !tokenInfo || !amount || parseFloat(amount) <= 0}
-                  style={{ width: '100%', padding: '13px', borderRadius: 999, background: 'var(--surface-elevated)', border: '1px solid var(--primary)', color: 'var(--primary)', cursor: 'pointer', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: (approving || !tokenInfo || !amount) ? 0.5 : 1 }}>
-                  <Coins size={15} /> {approving ? 'Approving…' : 'Approve Tokens'}
+                <button onClick={handleApprove}
+                  disabled={approving || txKind === 'approve' || !tokenInfo || !amount || parseFloat(amount) <= 0}
+                  style={{ width: '100%', padding: '13px', borderRadius: 999, background: 'var(--surface-elevated)', border: '1px solid var(--primary)', color: 'var(--primary)', cursor: 'pointer', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: (approving || txKind === 'approve' || !tokenInfo || !amount) ? 0.5 : 1 }}>
+                  {txKind === 'approve'
+                    ? <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> Confirming approval…</>
+                    : <><Coins size={15} /> {approving ? 'Approving…' : 'Approve Tokens'}</>}
                 </button>
               </div>
             )}
 
             {/* Token: approved banner */}
-            {mode === 'token' && approved && (
+            {mode === 'token' && hasEnoughAllowance && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(45,212,191,0.08)', border: '1px solid rgba(45,212,191,0.25)', fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>
-                <CheckCircle2 size={15} /> Tokens approved — ready to create transfer
+                <CheckCircle2 size={15} />
+                Approved {allowanceDisplay} {tokenInfo?.symbol} — ready to create transfer
               </div>
             )}
 
             {/* Submit button */}
             <button
               onClick={mode === 'native' ? handleCreate : handleCreateToken}
-              disabled={loading || (mode === 'token' && !approved)}
-              style={{ width: '100%', padding: '13px', borderRadius: 999, background: 'var(--primary)', color: 'var(--primary-fg)', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: (loading || (mode === 'token' && !approved)) ? 0.5 : 1 }}>
+              disabled={loading || (mode === 'token' && (!hasEnoughAllowance || checkingAllowance))}
+              style={{ width: '100%', padding: '13px', borderRadius: 999, background: 'var(--primary)', color: 'var(--primary-fg)', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: (loading || (mode === 'token' && (!hasEnoughAllowance || checkingAllowance))) ? 0.5 : 1 }}>
               {mode === 'native' ? <Lock size={15} /> : <Coins size={15} />}
               {mode === 'native' ? 'Create Transfer' : 'Create Token Transfer'}
             </button>
@@ -367,7 +661,10 @@ function EscrowContent() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.5px' }}>{formatPOT(e.amount)}</span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.5px' }}>{formatPOT(e.amount)}</span>
+                      <UsdValue symbol={NATIVE} amount={formatEther(BigInt(e.amount || '0'))} />
+                    </div>
                     <button onClick={() => navigator.clipboard.writeText(isSender ? e.recipient : e.sender)}
                       style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--foreground-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
                       {isSender ? `→ ${shortAddress(e.recipient)}` : `← ${shortAddress(e.sender)}`}
@@ -398,16 +695,21 @@ function EscrowContent() {
               const isPending   = e.status === 'Pending' || Number(e.status) === 0;
               const statusLabel = ESCROW_STATUS_LABEL[Number(e.status)] ?? e.status;
               const statusColor = statusLabel === 'Refunded' ? 'var(--foreground-muted)' : 'var(--primary)';
-              const amtDisplay  = (() => { try { return formatEther(BigInt(e.amount)); } catch { return e.amount; } })();
+              const knownToken  = getKnownToken(e.token);
+              // Known tokens carry their real decimals; unknown ones fall back to 18.
+              const amtDisplay  = (() => {
+                try { return formatUnits(BigInt(e.amount), knownToken?.decimals ?? 18); }
+                catch { return e.amount; }
+              })();
               return (
                 <div key={`t-${e.id}`} style={{ padding: '20px 22px', borderRadius: 14, background: 'var(--surface-card)', border: '1px solid rgba(251,191,36,0.2)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(251,191,36,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Coins size={16} color="var(--warning)" />
+                      <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(251,191,36,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {knownToken ? <TokenLogo src={knownToken.logo} alt={knownToken.symbol} size={22} /> : <Coins size={16} color="var(--warning)" />}
                       </div>
                       <div>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground-subtle)', display: 'block' }}>#{e.id} · ERC-20</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground-subtle)', display: 'block' }}>#{e.id} · {knownToken ? knownToken.symbol : 'ERC-20'}</span>
                         <span style={{ fontSize: 12, fontWeight: 700, color: isSender ? 'var(--foreground-muted)' : 'var(--primary)' }}>{isSender ? 'SENT' : 'RECEIVED'}</span>
                       </div>
                     </div>
@@ -421,7 +723,13 @@ function EscrowContent() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.5px' }}>{parseFloat(amtDisplay).toFixed(6)}</span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.5px' }}>
+                        {parseFloat(amtDisplay).toLocaleString('en-US', { maximumFractionDigits: 6 })}
+                        {knownToken && <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground-muted)', marginLeft: 6 }}>{knownToken.symbol}</span>}
+                      </span>
+                      {knownToken && <UsdValue symbol={knownToken.symbol} amount={amtDisplay} />}
+                    </div>
                     <button onClick={() => navigator.clipboard.writeText(isSender ? e.recipient : e.sender)}
                       style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--foreground-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
                       {isSender ? `→ ${shortAddress(e.recipient)}` : `← ${shortAddress(e.sender)}`}

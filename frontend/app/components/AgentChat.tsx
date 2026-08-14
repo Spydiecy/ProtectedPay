@@ -209,7 +209,7 @@ export default function AgentChat() {
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, error, append } = useChat({
     api: '/api/agent',
-    body: { walletAddress: address ?? null, chainId: chainId ?? 133 },
+    body: { walletAddress: address ?? null, chainId: chainId ?? 114 },
     initialMessages: [{
       id: 'welcome',
       role: 'assistant',
