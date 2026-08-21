@@ -65,6 +65,7 @@ When the user asks you to send, transfer, create, register, claim, refund, or do
 
 Examples of when to call tools immediately:
 - User says "send 0.01 OKB to @test" → call buildEscrow immediately
+- User says "send 5 USDT to @test" or "escrow 10 USDC to @alice" → call buildTokenEscrow immediately (pass "USDT"/"USDC"/"USDG" as tokenAddress)
 - User says "create a group payment" → call buildGroupPayment immediately
 - User says "register @myname" → call buildRegisterUsername immediately
 - User says "send batch to these addresses" → call buildBatchTransfer immediately
@@ -96,9 +97,7 @@ Steps: **Protected Transfer** tab → recipient (address or @username) → amoun
 Recipient: **Claim** button. Sender: **Refund** button.
 
 ### Protected Token Transfer (ERC-20 Escrow)
-Same as above but for any ERC-20 token. **USDT**, **USDC** and **USDG** are preset in the token dropdown — no address needed, just pick them from the list. Any other token can be added via **Custom Token Address**. Two steps required:
-1. **Protected Transfer** tab → switch to **ERC-20 Token** → pick **USDT**, **USDC**, **USDG**, or **Custom Token Address** → fill fields → **Approve Tokens** (signs approve tx)
-2. After approval: **Create Token Transfer** (signs createTokenEscrow tx)
+Same as above but for any ERC-20 token. **USDT**, **USDC** and **USDG** are preset — no address needed, just say the symbol. You can trigger this directly from chat: calling buildTokenEscrow shows two wallet buttons in sequence — **Approve** then **Create Token Transfer**. It's also available manually in the UI: **Protected Transfer** tab → switch to **ERC-20 Token** → pick a preset or **Custom Token Address**.
 
 ### Group Split Payment
 Multiple people split a payment equally to one recipient. Creator pays their share upfront, others join by Group ID.
@@ -311,7 +310,7 @@ export async function POST(req: Request) {
       }),
 
       buildTokenEscrow: tool({
-        description: 'Give steps for creating a protected ERC-20 token transfer (two steps: approve then create). USDT, USDC and USDG are preset tokens in the UI — pass "USDT", "USDC" or "USDG" as tokenAddress (or the symbol name) instead of asking the user for a contract address. Only ask for a raw 0x address if the user wants a different, unlisted token.',
+        description: 'ALWAYS call this when the user wants to send/escrow an ERC-20 token (USDT, USDC, USDG, or a custom token) to someone. Resolves @username, resolves the token symbol to its contract address, reads its decimals, and triggers a two-step wallet flow (Approve then Create) directly in the chat UI. USDT, USDC and USDG are preset tokens — pass "USDT", "USDC" or "USDG" as tokenAddress (or the symbol name) instead of asking the user for a contract address. Only ask for a raw 0x address if the user wants a different, unlisted token.',
         parameters: z.object({
           tokenAddress: z.string().describe('ERC-20 token contract address, OR the symbol "USDT" / "USDC" / "USDG" for the preset tokens'),
           recipient: z.string().describe('Recipient address or @username'),
@@ -326,15 +325,46 @@ export async function POST(req: Request) {
             if (!resolved || resolved === '0x0000000000000000000000000000000000000000') return { error: `@${uname} not found` };
             addr = resolved;
           }
-          const PRESETS: Record<string, string> = {
-            USDT: '0x9E29b3AAdA05BF2D2c827aF80bd28dc0b9B4Fb0c',
-            USDC: '0xCB8bF24c6cE16aD21d707C9505421A17F2Bec79D',
-            USDG: '0xA78E2bAABAf5c4F36B7fC394725DEb68d332Eec1',
+          const PRESETS: Record<string, { address: string; decimals: number }> = {
+            USDT: { address: '0x9E29b3AAdA05BF2D2c827aF80bd28dc0b9B4Fb0c', decimals: 6 },
+            USDC: { address: '0xCB8bF24c6cE16aD21d707C9505421A17F2Bec79D', decimals: 6 },
+            USDG: { address: '0xA78E2bAABAf5c4F36B7fC394725DEb68d332Eec1', decimals: 6 },
           };
           const presetSymbol = tokenAddress.toUpperCase();
-          const resolvedTokenAddress = PRESETS[presetSymbol] ?? tokenAddress;
-          const tokenLabel = PRESETS[presetSymbol] ? presetSymbol : resolvedTokenAddress;
-          return { tokenAddress: resolvedTokenAddress, resolvedAddress: addr, amount, remarks, steps: [`Go to **Protected Transfer** tab`, `Switch to **ERC-20 Token**`, `Token: select **${tokenLabel}** from the token dropdown${PRESETS[presetSymbol] ? '' : ' (or choose **Custom Token Address** and paste it)'}`, `Recipient: ${addr}`, `Amount: ${amount}`, `Click **Approve Tokens** (wallet popup 1)`, `Click **Create Token Transfer** (wallet popup 2)`] };
+          const preset = PRESETS[presetSymbol];
+          const resolvedTokenAddress = preset ? preset.address : tokenAddress;
+
+          if (!resolvedTokenAddress.startsWith('0x') || resolvedTokenAddress.length !== 42) {
+            return { error: `"${tokenAddress}" is not a valid token symbol or contract address` };
+          }
+
+          let decimals = preset?.decimals;
+          let symbol = preset ? presetSymbol : undefined;
+          if (decimals === undefined) {
+            try {
+              const ERC20_META_ABI = [
+                { name: 'decimals', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint8' }] },
+                { name: 'symbol',   type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'string' }] },
+              ] as const;
+              const [dec, sym] = await Promise.all([
+                publicClient.readContract({ address: resolvedTokenAddress as `0x${string}`, abi: ERC20_META_ABI, functionName: 'decimals' }),
+                publicClient.readContract({ address: resolvedTokenAddress as `0x${string}`, abi: ERC20_META_ABI, functionName: 'symbol' }),
+              ]);
+              decimals = Number(dec);
+              symbol = sym as string;
+            } catch {
+              return { error: `Could not read token at ${resolvedTokenAddress} — check the address` };
+            }
+          }
+
+          return {
+            tokenAddress: resolvedTokenAddress,
+            resolvedAddress: addr,
+            amount,
+            remarks,
+            decimals,
+            symbol: symbol ?? 'TOKEN',
+          };
         },
       }),
 

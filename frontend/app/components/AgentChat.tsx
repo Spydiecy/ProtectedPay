@@ -2,12 +2,12 @@
 
 import { useChat } from '@ai-sdk/react';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useChainId, usePublicClient } from 'wagmi';
 import { usePathname } from 'next/navigation';
-import { parseEther } from 'viem';
+import { parseEther, parseUnits } from 'viem';
 import { PROTECTED_PAY_ABI } from '../lib/abi';
 import { getContractAddress } from '../lib/wagmi';
-import { MessageCircle, X, Send, Bot, User, Loader2, Sparkles, ChevronDown, Zap, CheckCircle2 } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Loader2, Sparkles, ChevronDown, Zap, CheckCircle2, Coins } from 'lucide-react';
 
 interface PendingAction {
   type: 'createEscrow' | 'createGroupPayment' | 'createPaymentLink' | 'batchTransfer' | 
@@ -18,6 +18,21 @@ interface PendingAction {
   label: string;
   value?: bigint;
 }
+
+interface PendingTokenAction {
+  tokenAddress: `0x${string}`;
+  recipient: `0x${string}`;
+  amountWei: bigint;
+  symbol: string;
+  amount: string;
+  remarks: string;
+}
+
+// Minimal ERC-20 ABI for the chat-native approve → create flow
+const ERC20_ABI = [
+  { name: 'approve',   type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
+  { name: 'allowance', type: 'function', stateMutability: 'view',       inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+] as const;
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 function MsgMarkdown({ text, isUser }: { text: string; isUser: boolean }) {
@@ -103,10 +118,6 @@ function extractAction(invocations: any[]): PendingAction | null {
     if (inv.toolName === 'buildRegisterUsername' && r.username) {
       return { type: 'registerUsername', params: { username: r.username }, label: `Register @${r.username}`, value: undefined };
     }
-    if (inv.toolName === 'buildTokenEscrow' && inv.result?.resolvedAddress) {
-      // Token escrow needs 2-step flow (approve + create) — no single button, show info only
-      continue;
-    }
     if (inv.toolName === 'claimTokenEscrow' && r.escrowId) {
       return { type: 'claimTokenEscrow', params: { id: r.escrowId }, label: `Claim Token Escrow #${r.escrowId}`, value: undefined };
     }
@@ -122,6 +133,28 @@ function extractAction(invocations: any[]): PendingAction | null {
     if (inv.toolName === 'cancelPaymentLink' && r.linkId) {
       return { type: 'cancelPaymentLink', params: { linkId: r.linkId }, label: `Cancel Payment Link`, value: undefined };
     }
+  }
+  return null;
+}
+
+// ── Extract a token-escrow action (separate: needs approve → create, not a single write) ─────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractTokenAction(invocations: any[]): PendingTokenAction | null {
+  for (const inv of invocations) {
+    if (inv.state !== 'result' || inv.toolName !== 'buildTokenEscrow') continue;
+    const r = inv.result;
+    if (!r || r.error || !r.resolvedAddress || !r.tokenAddress || r.decimals === undefined) continue;
+    let amountWei: bigint;
+    try { amountWei = parseUnits(r.amount, Number(r.decimals)); } catch { continue; }
+    if (amountWei <= 0n) continue;
+    return {
+      tokenAddress: r.tokenAddress as `0x${string}`,
+      recipient: r.resolvedAddress as `0x${string}`,
+      amountWei,
+      symbol: r.symbol ?? 'TOKEN',
+      amount: r.amount,
+      remarks: r.remarks ?? '',
+    };
   }
   return null;
 }
@@ -195,6 +228,122 @@ function TxButton({ action, onDone }: { action: PendingAction; onDone: (msg: str
      : phase === 'wallet' ? <><Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} />Confirm in wallet…</>
      :                      <><Zap size={15} />{action.label}</>}
     </button>
+  );
+}
+
+// ── Token transaction button — two-step approve → create flow ────────────────
+function TokenTxButton({ action, onDone }: { action: PendingTokenAction; onDone: (msg: string) => void }) {
+  const { writeContractAsync } = useWriteContract();
+  const chainId = useChainId();
+  const client = usePublicClient();
+  const { address } = useAccount();
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const [step,   setStep]   = useState<'approve' | 'create'>('approve');
+  const [phase,  setPhase]  = useState<'idle' | 'checking' | 'wallet' | 'mining' | 'done' | 'error'>('checking');
+  const [errMsg, setErrMsg] = useState('');
+
+  const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const contractAddress = getContractAddress(chainId);
+
+  // On mount (and whenever the wallet changes), check the on-chain allowance —
+  // skip straight to "create" if the user already approved enough.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!address || !client) { setPhase('idle'); return; }
+      try {
+        const current = await client.readContract({
+          address: action.tokenAddress, abi: ERC20_ABI,
+          functionName: 'allowance', args: [address, contractAddress],
+        }) as bigint;
+        if (cancelled) return;
+        setStep(current >= action.amountWei ? 'create' : 'approve');
+      } catch { /* fall back to approve step */ }
+      finally { if (!cancelled) setPhase('idle'); }
+    })();
+    return () => { cancelled = true; };
+  }, [address, client, action.tokenAddress, action.amountWei, contractAddress]);
+
+  useEffect(() => {
+    if (!isSuccess || phase !== 'mining') return;
+    if (step === 'approve') {
+      setPhase('idle');
+      setStep('create');
+      setTxHash(undefined);
+    } else {
+      setPhase('done');
+      setTimeout(() => onDone(`✅ Sent ${action.amount} ${action.symbol} → ${action.recipient.slice(0, 8)}… confirmed!`), 300);
+    }
+  }, [isSuccess, phase, step, action, onDone]);
+
+  const execute = useCallback(async () => {
+    setPhase('wallet');
+    try {
+      let hash: `0x${string}`;
+      if (step === 'approve') {
+        hash = await writeContractAsync({
+          address: action.tokenAddress, abi: ERC20_ABI,
+          functionName: 'approve', args: [contractAddress, action.amountWei],
+        });
+      } else {
+        hash = await writeContractAsync({
+          address: contractAddress, abi: PROTECTED_PAY_ABI,
+          functionName: 'createTokenEscrow',
+          args: [action.tokenAddress, action.recipient, action.amountWei, action.remarks],
+        });
+      }
+      setTxHash(hash);
+      setPhase('mining');
+    } catch (e: unknown) {
+      setErrMsg(e instanceof Error ? e.message.slice(0, 80) : 'Transaction rejected');
+      setPhase('error');
+    }
+  }, [step, action, contractAddress, writeContractAsync]);
+
+  if (phase === 'checking') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: 'var(--surface-elevated)', border: '1px solid var(--border)', marginTop: 10, fontSize: 12.5, color: 'var(--foreground-muted)' }}>
+        <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Checking token allowance…
+      </div>
+    );
+  }
+
+  if (phase === 'done') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', borderRadius: 12, background: 'rgba(45,212,191,0.12)', border: '1px solid rgba(45,212,191,0.35)', marginTop: 10 }}>
+        <CheckCircle2 size={16} color="var(--primary)" />
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--primary)' }}>Token transfer confirmed!</span>
+      </div>
+    );
+  }
+  if (phase === 'error') {
+    return (
+      <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--error-container)', border: '1px solid var(--error)', marginTop: 10, fontSize: 12.5, color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <span>{errMsg}</span>
+        <button onClick={() => setPhase('idle')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)', fontSize: 12, textDecoration: 'underline', flexShrink: 0 }}>retry</button>
+      </div>
+    );
+  }
+
+  const busy = phase === 'wallet' || phase === 'mining';
+  const label = step === 'approve'
+    ? `Approve ${action.amount} ${action.symbol}`
+    : `Send ${action.amount} ${action.symbol} → ${action.recipient.slice(0, 8)}…`;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+      {step === 'create' && (
+        <div style={{ fontSize: 11, color: 'var(--foreground-subtle)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <CheckCircle2 size={11} color="var(--primary)" /> Approved — ready to send
+        </div>
+      )}
+      <button onClick={execute} disabled={busy}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '12px 16px', borderRadius: 12, background: 'var(--primary)', color: 'var(--primary-fg)', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 13.5, fontWeight: 700, boxShadow: '0 4px 16px rgba(45,212,191,0.3)', opacity: busy ? 0.75 : 1, transition: 'opacity 0.15s' }}>
+        {phase === 'mining'  ? <><Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} />{step === 'approve' ? 'Confirming approval…' : 'Confirming on-chain…'}</>
+       : phase === 'wallet' ? <><Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} />Confirm in wallet…</>
+       :                      <><Coins size={15} />{label}</>}
+      </button>
+    </div>
   );
 }
 
@@ -273,7 +422,8 @@ export default function AgentChat() {
             {messages.map(m => {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const invocations = (m as any).toolInvocations ?? [];
-              const action = invocations.length > 0 ? extractAction(invocations) : null;
+              const action      = invocations.length > 0 ? extractAction(invocations)      : null;
+              const tokenAction = invocations.length > 0 ? extractTokenAction(invocations) : null;
               return (
                 <div key={m.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: m.role === 'user' ? 'row-reverse' : 'row' }}>
                   <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, background: m.role === 'user' ? 'var(--primary-container)' : 'rgba(45,212,191,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
@@ -288,6 +438,11 @@ export default function AgentChat() {
                     {action && m.role === 'assistant' && (
                       address
                         ? <TxButton key={m.id} action={action} onDone={(msg) => append({ role: 'user', content: msg })} />
+                        : <div style={{ marginTop: 8, padding: '9px 13px', borderRadius: 10, background: 'var(--surface-elevated)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--foreground-muted)' }}>Connect your wallet to execute this.</div>
+                    )}
+                    {tokenAction && m.role === 'assistant' && (
+                      address
+                        ? <TokenTxButton key={`${m.id}-token`} action={tokenAction} onDone={(msg) => append({ role: 'user', content: msg })} />
                         : <div style={{ marginTop: 8, padding: '9px 13px', borderRadius: 10, background: 'var(--surface-elevated)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--foreground-muted)' }}>Connect your wallet to execute this.</div>
                     )}
                   </div>
