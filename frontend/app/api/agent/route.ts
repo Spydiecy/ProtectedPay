@@ -326,9 +326,9 @@ export async function POST(req: Request) {
             addr = resolved;
           }
           const PRESETS: Record<string, { address: string; decimals: number }> = {
-            USDT: { address: '0x9E29b3AAdA05BF2D2c827aF80bd28dc0b9B4Fb0c', decimals: 6 },
-            USDC: { address: '0xCB8bF24c6cE16aD21d707C9505421A17F2Bec79D', decimals: 6 },
-            USDG: { address: '0xA78E2bAABAf5c4F36B7fC394725DEb68d332Eec1', decimals: 6 },
+            USDT: { address: '0x9e29b3AaDa05Bf2D2c827Af80Bd28Dc0b9b4FB0c', decimals: 6 },
+            USDC: { address: '0xcB8BF24c6cE16Ad21D707c9505421a17f2bec79D', decimals: 6 },
+            USDG: { address: '0xA78E2baaBaf5c4f36b7Fc394725Deb68D332EeC1', decimals: 6 },
           };
           const presetSymbol = tokenAddress.toUpperCase();
           const preset = PRESETS[presetSymbol];

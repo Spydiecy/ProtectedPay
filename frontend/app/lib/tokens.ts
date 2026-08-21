@@ -17,9 +17,9 @@ export interface PresetToken {
 }
 
 export const PRESET_TOKENS: PresetToken[] = [
-  { symbol: 'USDT', label: 'USDT', name: 'Tether USD',   address: '0x9E29b3AAdA05BF2D2c827aF80bd28dc0b9B4Fb0c', decimals: 6, logo: '/token/usdt.png' },
-  { symbol: 'USDC', label: 'USDC', name: 'USD Coin',      address: '0xCB8bF24c6cE16aD21d707C9505421A17F2Bec79D', decimals: 6, logo: '/token/usdc.png' },
-  { symbol: 'USDG', label: 'USDG', name: 'Global Dollar', address: '0xA78E2bAABAf5c4F36B7fC394725DEb68d332Eec1', decimals: 6, logo: '/token/usdg.png' },
+  { symbol: 'USDT', label: 'USDT', name: 'Tether USD',   address: '0x9e29b3AaDa05Bf2D2c827Af80Bd28Dc0b9b4FB0c', decimals: 6, logo: '/token/usdt.png' },
+  { symbol: 'USDC', label: 'USDC', name: 'USD Coin',      address: '0xcB8BF24c6cE16Ad21D707c9505421a17f2bec79D', decimals: 6, logo: '/token/usdc.png' },
+  { symbol: 'USDG', label: 'USDG', name: 'Global Dollar', address: '0xA78E2baaBaf5c4f36b7Fc394725Deb68D332EeC1', decimals: 6, logo: '/token/usdg.png' },
 ];
 
 /** Lookup a preset token by its contract address (case-insensitive). */

@@ -4,6 +4,8 @@
 
 *Live on the X Layer Testnet for this hackathon — mainnet launch coming once the hackathon wraps up.*
 
+**🚀 Live app: [protectedpay-okx.vercel.app](https://protectedpay-okx.vercel.app/)**
+
 ---
 
 ## The Problem
@@ -60,9 +62,9 @@ Full on-chain history across all features — protected transfers, token escrows
 
 | Item | Address |
 |---|---|
-| USDT | `0x9E29b3AAdA05BF2D2c827aF80bd28dc0b9B4Fb0c` |
-| USDC | `0xCB8bF24c6cE16aD21d707C9505421A17F2Bec79D` |
-| USDG | `0xA78E2bAABAf5c4F36B7fC394725DEb68d332Eec1` |
+| USDT | `0x9e29b3AaDa05Bf2D2c827Af80Bd28Dc0b9b4FB0c` |
+| USDC | `0xcB8BF24c6cE16Ad21D707c9505421a17f2bec79D` |
+| USDG | `0xA78E2baaBaf5c4f36b7Fc394725Deb68D332EeC1` |
 
 ---
 
@@ -169,4 +171,4 @@ Most "group payment" flows require someone to collect money and then pay out. Pr
 
 ---
 
-**[Follow on X](https://x.com/protected_pay) · [View on GitHub](https://github.com/Spydiecy/ProtectedPay)**
+**[Live App](https://protectedpay-okx.vercel.app/) · [Follow on X](https://x.com/protected_pay) · [View on GitHub](https://github.com/Spydiecy/ProtectedPay)**
