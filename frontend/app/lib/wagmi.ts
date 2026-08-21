@@ -11,23 +11,23 @@ import {
 } from '@rainbow-me/rainbowkit/wallets';
 import type { Chain } from 'wagmi/chains';
 
-// ── Flare Testnet Coston2 ─────────────────────────────────────────────────────
-export const flareTestnet = {
-  id: 114,
-  name: 'Flare Testnet Coston2',
+// ── X Layer Testnet ────────────────────────────────────────────────────────────
+export const xLayerTestnet = {
+  id: 1952,
+  name: 'X Layer Testnet',
   nativeCurrency: {
-    name: 'Coston2 Flare',
-    symbol: 'C2FLR',
+    name: 'OKB',
+    symbol: 'OKB',
     decimals: 18,
   },
   rpcUrls: {
-    default: { http: ['https://coston2-api.flare.network/ext/C/rpc'] },
-    public:  { http: ['https://coston2-api.flare.network/ext/C/rpc'] },
+    default: { http: ['https://testrpc.xlayer.tech/terigon'] },
+    public:  { http: ['https://xlayertestrpc.okx.com/terigon'] },
   },
   blockExplorers: {
     default: {
-      name: 'Coston2 Explorer',
-      url: 'https://coston2-explorer.flare.network',
+      name: 'X Layer Testnet Explorer',
+      url: 'https://web3.okx.com/explorer/x-layer-testnet',
     },
   },
   testnet: true,
@@ -40,11 +40,11 @@ export const CONTRACT_ADDRESS = (
 
 // Single-chain deployment — kept as a map for backward-compatible call sites.
 export const CONTRACT_ADDRESSES: Record<number, `0x${string}`> = {
-  [flareTestnet.id]: CONTRACT_ADDRESS,
+  [xLayerTestnet.id]: CONTRACT_ADDRESS,
 };
 
 export function getContractAddress(chainId?: number): `0x${string}` {
-  return CONTRACT_ADDRESSES[chainId ?? flareTestnet.id] ?? CONTRACT_ADDRESS;
+  return CONTRACT_ADDRESSES[chainId ?? xLayerTestnet.id] ?? CONTRACT_ADDRESS;
 }
 
 // ── WalletConnect project ID ──────────────────────────────────────────────────
@@ -70,32 +70,32 @@ const connectors = WC_PROJECT_ID
         },
       ],
       {
-        appName: 'FlarePay',
+        appName: 'ProtectedPay',
         projectId: WC_PROJECT_ID,
       }
     )
-  : [injected(), metaMask(), coinbaseWallet({ appName: 'FlarePay' })];
+  : [injected(), metaMask(), coinbaseWallet({ appName: 'ProtectedPay' })];
 
 // ── Wagmi config ──────────────────────────────────────────────────────────────
 export const wagmiConfig = createConfig({
-  chains: [flareTestnet],
+  chains: [xLayerTestnet],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   connectors: connectors as any,
   transports: {
-    [flareTestnet.id]: http('https://coston2-api.flare.network/ext/C/rpc'),
+    [xLayerTestnet.id]: http('https://testrpc.xlayer.tech/terigon'),
   },
   ssr: true,
 });
 
 // ── Explorer URLs ──────────────────────────────────────────────────────────────
-export const EXPLORER_URL = flareTestnet.blockExplorers.default.url;
+export const EXPLORER_URL = xLayerTestnet.blockExplorers.default.url;
 
 export const EXPLORER_URLS: Record<number, string> = {
-  [flareTestnet.id]: EXPLORER_URL,
+  [xLayerTestnet.id]: EXPLORER_URL,
 };
 
 export function getExplorerUrl(chainId?: number): string {
-  return EXPLORER_URLS[chainId ?? flareTestnet.id] ?? EXPLORER_URL;
+  return EXPLORER_URLS[chainId ?? xLayerTestnet.id] ?? EXPLORER_URL;
 }
 
 export function explorerTx(hash: string, chainId?: number): string {
@@ -109,7 +109,7 @@ export function explorerAddress(addr: string, chainId?: number): string {
 }
 
 // ── Faucet ─────────────────────────────────────────────────────────────────────
-export const FAUCET_URL = 'https://faucet.flare.network/';
+export const FAUCET_URL = 'https://web3.okx.com/xlayer/faucet/xlayerfaucet';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 export function formatNative(wei: bigint, decimals = 4): string {

@@ -8,7 +8,6 @@ import { PROTECTED_PAY_ABI, ESCROW_STATUS_LABEL, GROUP_STATUS_LABEL } from '../l
 import { shortAddress } from '../lib/wagmi';
 import { useContractAddress } from '../hooks/useContract';
 import WalletGuard from '../components/WalletGuard';
-import UsdValue from '../components/UsdValue';
 import { getKnownToken } from '../lib/tokens';
 import {
   RefreshCw, ArrowUpRight, ArrowDownLeft, Users, Zap, History,
@@ -16,8 +15,8 @@ import {
 } from 'lucide-react';
 
 type HistoryTab = 'all' | 'protected' | 'group' | 'batch' | 'links';
-const NATIVE   = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
-const EXPLORER = 'https://coston2-explorer.flare.network';
+const NATIVE   = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'OKB';
+const EXPLORER = 'https://web3.okx.com/explorer/x-layer-testnet';
 
 function fmtDate(ts: string | undefined) {
   if (!ts || ts === '0') return null;
@@ -354,7 +353,7 @@ function HistoryContent() {
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>FlarePay</p>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>ProtectedPay</p>
           <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-1px' }}>Transaction History</h1>
           <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginTop: 4 }}>All your on-chain activity in one place</p>
         </div>
@@ -402,7 +401,6 @@ function HistoryContent() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>{formatPOT(e.amount)}</span>
-                      <UsdValue symbol={NATIVE} amount={formatEther(BigInt(e.amount || '0'))} />
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: isSender ? 'rgba(0,0,0,0.06)' : 'rgba(45,212,191,0.12)', color: isSender ? 'var(--foreground-muted)' : 'var(--primary)' }}>
                         {isSender ? 'SENT' : 'RECEIVED'}
                       </span>
@@ -443,7 +441,6 @@ function HistoryContent() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>{amtDisplay}</span>
-                      {known && <UsdValue symbol={known.symbol} amount={amtRaw} />}
                       <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'rgba(251,191,36,0.12)', color: 'var(--warning)' }}>TOKEN</span>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: isSender ? 'rgba(0,0,0,0.06)' : 'rgba(45,212,191,0.12)', color: isSender ? 'var(--foreground-muted)' : 'var(--primary)' }}>
                         {isSender ? 'SENT' : 'RECEIVED'}

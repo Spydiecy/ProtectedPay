@@ -9,11 +9,10 @@ import { shortAddress } from '../lib/wagmi';
 import { useContractAddress } from '../hooks/useContract';
 import WalletGuard from '../components/WalletGuard';
 import Toast, { ToastType } from '../components/Toast';
-import UsdValue from '../components/UsdValue';
 import { PRESET_TOKENS, getKnownToken } from '../lib/tokens';
 import { Lock, ArrowDownCircle, RotateCcw, RefreshCw, AtSign, Coins, CheckCircle2, ChevronDown, Check, PenLine, Wallet } from 'lucide-react';
 
-const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
+const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'OKB';
 
 // Minimal ERC-20 ABI — just what we need
 const ERC20_ABI = [
@@ -337,7 +336,7 @@ function EscrowContent() {
   return (
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>FlarePay</p>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>ProtectedPay</p>
         <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-1px' }}>Protected Transfer</h1>
         <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginTop: 4 }}>Lock funds until the recipient claims them</p>
       </div>
@@ -542,17 +541,6 @@ function EscrowContent() {
                 onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
                 onBlur={e => (e.target.style.borderColor = 'var(--border)')}
               />
-              {/* Live USD equivalent from Flare FTSOv2 */}
-              {amount && parseFloat(amount) > 0 && (
-                <div style={{ marginTop: 6, paddingLeft: 2 }}>
-                  <UsdValue
-                    symbol={mode === 'token' ? tokenInfo?.symbol : NATIVE}
-                    amount={amount}
-                    size={12}
-                    showSource
-                  />
-                </div>
-              )}
               {/* Insufficient balance warning */}
               {mode === 'token' && tokenInfo && tokenBalance != null && amount && (() => {
                 try { return parseUnits(amount, tokenInfo.decimals) > tokenBalance; } catch { return false; }
@@ -663,7 +651,6 @@ function EscrowContent() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                       <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.5px' }}>{formatPOT(e.amount)}</span>
-                      <UsdValue symbol={NATIVE} amount={formatEther(BigInt(e.amount || '0'))} />
                     </div>
                     <button onClick={() => navigator.clipboard.writeText(isSender ? e.recipient : e.sender)}
                       style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--foreground-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -728,7 +715,6 @@ function EscrowContent() {
                         {parseFloat(amtDisplay).toLocaleString('en-US', { maximumFractionDigits: 6 })}
                         {knownToken && <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground-muted)', marginLeft: 6 }}>{knownToken.symbol}</span>}
                       </span>
-                      {knownToken && <UsdValue symbol={knownToken.symbol} amount={amtDisplay} />}
                     </div>
                     <button onClick={() => navigator.clipboard.writeText(isSender ? e.recipient : e.sender)}
                       style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--foreground-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>

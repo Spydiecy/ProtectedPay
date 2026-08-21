@@ -3,33 +3,33 @@ import { streamText, tool } from 'ai';
 import { z } from 'zod';
 import { createPublicClient, http, formatEther } from 'viem';
 
-const NATIVE_SYMBOL = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
+const NATIVE_SYMBOL = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'OKB';
 
 // ── Chain definition ──────────────────────────────────────────────────────────
-const flareTestnet = {
-  id: 114,
-  name: 'Flare Testnet Coston2',
-  nativeCurrency: { name: 'Coston2 Flare', symbol: 'C2FLR', decimals: 18 },
-  rpcUrls: { default: { http: ['https://coston2-api.flare.network/ext/C/rpc'] } },
+const xLayerTestnet = {
+  id: 1952,
+  name: 'X Layer Testnet',
+  nativeCurrency: { name: 'OKB', symbol: 'OKB', decimals: 18 },
+  rpcUrls: { default: { http: ['https://testrpc.xlayer.tech/terigon'] } },
 } as const;
 
 // ── Contract address (single-chain deployment) ────────────────────────────────
 const CONTRACT_ADDRESSES: Record<number, `0x${string}`> = {
-  114: (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xCa36dD890F987EDcE1D6D7C74Fb9df627c216BF6') as `0x${string}`,
+  1952: (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xCa36dD890F987EDcE1D6D7C74Fb9df627c216BF6') as `0x${string}`,
 };
 
 // ── Explorer URLs per chain ───────────────────────────────────────────────────
 const EXPLORER_URLS: Record<number, string> = {
-  114: 'https://coston2-explorer.flare.network',
+  1952: 'https://web3.okx.com/explorer/x-layer-testnet',
 };
 
 // ── Build a chain-specific public client ──────────────────────────────────────
 function getClient(_chainId: number) {
-  return createPublicClient({ chain: flareTestnet as never, transport: http('https://coston2-api.flare.network/ext/C/rpc') });
+  return createPublicClient({ chain: xLayerTestnet as never, transport: http('https://testrpc.xlayer.tech/terigon') });
 }
 
 function getNetworkName(_chainId: number) {
-  return 'Flare Testnet Coston2';
+  return 'X Layer Testnet';
 }
 
 const ABI = [
@@ -50,25 +50,25 @@ const LINK_STATUS   = ['Active', 'Paid', 'Cancelled'];
 const mistral = createMistral({ apiKey: process.env.MISTRAL_API_KEY });
 
 // ── System prompt ─────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are PayBot, the friendly AI assistant built into FlarePay — a trustless on-chain payment platform on the Flare Testnet Coston2 (EVM, Chain ID 114, native gas token: ${NATIVE_SYMBOL}).
+const SYSTEM_PROMPT = `You are PayBot, the friendly AI assistant built into ProtectedPay — a trustless on-chain payment platform on the X Layer Testnet (EVM, Chain ID 1952, native gas token: ${NATIVE_SYMBOL}).
 
 ## Personality
-You ONLY discuss FlarePay and crypto payments. You are NOT a general-purpose AI.
-When asked about anything unrelated (weather, sports, news, recipes, general coding, etc.) give a short, warm, witty redirect back to FlarePay. Examples:
-- Weather → "Not sure about the weather, but ${NATIVE_SYMBOL} transfers on Flare are flowing smoothly! Want to send some?"
+You ONLY discuss ProtectedPay and crypto payments. You are NOT a general-purpose AI.
+When asked about anything unrelated (weather, sports, news, recipes, general coding, etc.) give a short, warm, witty redirect back to ProtectedPay. Examples:
+- Weather → "Not sure about the weather, but ${NATIVE_SYMBOL} transfers on X Layer are flowing smoothly! Want to send some?"
 - Sports → "I'm more of a payments guy! How about sending a batch payment to your team after the game?"
 - Crypto prices → "I don't track prices, but I can check your ${NATIVE_SYMBOL} balance on-chain — want me to?"
-Never flatly refuse. Always steer back to FlarePay.
+Never flatly refuse. Always steer back to ProtectedPay.
 
 ## CRITICAL BEHAVIOR — Always trigger actions directly
 When the user asks you to send, transfer, create, register, claim, refund, or do anything transaction-related — you MUST call the appropriate build tool immediately. Do NOT just explain steps. The build tool will produce a clickable wallet button in the UI.
 
 Examples of when to call tools immediately:
-- User says "send 0.01 C2FLR to @test" → call buildEscrow immediately
+- User says "send 0.01 OKB to @test" → call buildEscrow immediately
 - User says "create a group payment" → call buildGroupPayment immediately
 - User says "register @myname" → call buildRegisterUsername immediately
 - User says "send batch to these addresses" → call buildBatchTransfer immediately
-- User says "create a payment link for 1 C2FLR" → call buildPaymentLink immediately
+- User says "create a payment link for 1 OKB" → call buildPaymentLink immediately
 - User says "claim escrow #5" → call claimEscrow with escrowId="5" immediately
 - User says "refund escrow #3" → call refundEscrow with escrowId="3" immediately
 - User says "claim my escrow" (no ID) → FIRST call getEscrowHistory to find pending escrows, THEN call claimEscrow with the correct ID
@@ -83,10 +83,10 @@ Examples of when to call tools immediately:
 Never say "here are the steps" when you can call a tool. Call the tool FIRST — the user can always ask for more info after.
 
 ## Navigation rules — CRITICAL
-- NEVER invent external URLs like "https://flarepay.xyz/anything"
-- All navigation is within the FlarePay dashboard sidebar: **Protected Transfer**, **Group Split**, **Batch Payment**, **Payment Links**, **History**
+- NEVER invent external URLs like "https://protectedpay.xyz/anything"
+- All navigation is within the ProtectedPay dashboard sidebar: **Protected Transfer**, **Group Split**, **Batch Payment**, **Payment Links**, **History**
 - Always say: "Go to the **Protected Transfer** tab in the dashboard" — never a URL
-- If the user needs test funds, tell them to click **Get Test Funds** in the sidebar, or visit the Flare faucet at https://faucet.flare.network/
+- If the user needs test funds, tell them to click **Get Test Funds** in the sidebar, or visit the X Layer faucet at https://web3.okx.com/xlayer/faucet/xlayerfaucet
 
 ## Features
 
@@ -96,8 +96,8 @@ Steps: **Protected Transfer** tab → recipient (address or @username) → amoun
 Recipient: **Claim** button. Sender: **Refund** button.
 
 ### Protected Token Transfer (ERC-20 Escrow)
-Same as above but for any ERC-20 token. **FXRP** and **USDT0** are preset in the token dropdown — no address needed, just pick them from the list. Any other token can be added via **Custom Token Address**. Two steps required:
-1. **Protected Transfer** tab → switch to **ERC-20 Token** → pick **FXRP**, **USDT0**, or **Custom Token Address** → fill fields → **Approve Tokens** (signs approve tx)
+Same as above but for any ERC-20 token. **USDT**, **USDC** and **USDG** are preset in the token dropdown — no address needed, just pick them from the list. Any other token can be added via **Custom Token Address**. Two steps required:
+1. **Protected Transfer** tab → switch to **ERC-20 Token** → pick **USDT**, **USDC**, **USDG**, or **Custom Token Address** → fill fields → **Approve Tokens** (signs approve tx)
 2. After approval: **Create Token Transfer** (signs createTokenEscrow tx)
 
 ### Group Split Payment
@@ -122,9 +122,6 @@ Say "register username spy" or "I want to register @myname" — I'll check avail
 
 ### Transaction History
 All activity (transfers, groups, batches, links) visible in the **History** tab.
-
-### Live USD Pricing (FTSOv2)
-Every amount in the app shows a "≈ $X" USD equivalent, priced live from Flare's native FTSOv2 oracle (block-latency feeds, ~1.8s updates, free to read). C2FLR uses the FLR/USD feed, FXRP uses XRP/USD, and USDT0 uses USDT/USD. This is Flare's enshrined oracle, not a third-party price API — if asked where prices come from, say FTSOv2.
 
 ## What you can do with tools
 - Look up @username → address (resolveUsername)
@@ -152,9 +149,9 @@ export async function POST(req: Request) {
   const { messages, walletAddress, chainId } = await req.json();
 
   // Resolve chain-specific values — default to testnet if not provided
-  const activeChainId = typeof chainId === 'number' ? chainId : 114;
-  const CONTRACT_ADDRESS = CONTRACT_ADDRESSES[activeChainId] ?? CONTRACT_ADDRESSES[114];
-  const EXPLORER = EXPLORER_URLS[activeChainId] ?? EXPLORER_URLS[114];
+  const activeChainId = typeof chainId === 'number' ? chainId : 1952;
+  const CONTRACT_ADDRESS = CONTRACT_ADDRESSES[activeChainId] ?? CONTRACT_ADDRESSES[1952];
+  const EXPLORER = EXPLORER_URLS[activeChainId] ?? EXPLORER_URLS[1952];
   const networkName = getNetworkName(activeChainId);
   const publicClient = getClient(activeChainId);
 
@@ -262,7 +259,7 @@ export async function POST(req: Request) {
       }),
 
       buildEscrow: tool({
-        description: 'ALWAYS call this tool when user wants to send C2FLR to someone as a protected transfer. Resolves @username to address and triggers the wallet confirmation button in the UI.',
+        description: 'ALWAYS call this tool when user wants to send OKB to someone as a protected transfer. Resolves @username to address and triggers the wallet confirmation button in the UI.',
         parameters: z.object({ recipient: z.string(), amount: z.string(), remarks: z.string() }),
         execute: async ({ recipient, amount, remarks }) => {
           let addr = recipient;
@@ -293,7 +290,7 @@ export async function POST(req: Request) {
       }),
 
       buildBatchTransfer: tool({
-        description: 'ALWAYS call this when user wants to batch send C2FLR to multiple addresses. Resolves @usernames and triggers the wallet button.',
+        description: 'ALWAYS call this when user wants to batch send OKB to multiple addresses. Resolves @usernames and triggers the wallet button.',
         parameters: z.object({
           recipients: z.array(z.object({ address: z.string(), amount: z.string() })),
           remarks: z.string(),
@@ -314,9 +311,9 @@ export async function POST(req: Request) {
       }),
 
       buildTokenEscrow: tool({
-        description: 'Give steps for creating a protected ERC-20 token transfer (two steps: approve then create). FXRP and USDT0 are preset tokens in the UI — pass "FXRP" or "USDT0" as tokenAddress (or the symbol name) instead of asking the user for a contract address. Only ask for a raw 0x address if the user wants a different, unlisted token.',
+        description: 'Give steps for creating a protected ERC-20 token transfer (two steps: approve then create). USDT, USDC and USDG are preset tokens in the UI — pass "USDT", "USDC" or "USDG" as tokenAddress (or the symbol name) instead of asking the user for a contract address. Only ask for a raw 0x address if the user wants a different, unlisted token.',
         parameters: z.object({
-          tokenAddress: z.string().describe('ERC-20 token contract address, OR the symbol "FXRP" / "USDT0" for the preset tokens'),
+          tokenAddress: z.string().describe('ERC-20 token contract address, OR the symbol "USDT" / "USDC" / "USDG" for the preset tokens'),
           recipient: z.string().describe('Recipient address or @username'),
           amount: z.string().describe('Token amount'),
           remarks: z.string(),
@@ -330,8 +327,9 @@ export async function POST(req: Request) {
             addr = resolved;
           }
           const PRESETS: Record<string, string> = {
-            FXRP: '0x0b6A3645c240605887a5532109323A3E12273dc7',
-            USDT0: '0xC1A5B41512496B80903D1f32d6dEa3a73212E71F',
+            USDT: '0x9E29b3AAdA05BF2D2c827aF80bd28dc0b9B4Fb0c',
+            USDC: '0xCB8bF24c6cE16aD21d707C9505421A17F2Bec79D',
+            USDG: '0xA78E2bAABAf5c4F36B7fC394725DEb68d332Eec1',
           };
           const presetSymbol = tokenAddress.toUpperCase();
           const resolvedTokenAddress = PRESETS[presetSymbol] ?? tokenAddress;

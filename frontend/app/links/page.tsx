@@ -16,7 +16,7 @@ import {
   RefreshCw, ExternalLink, Clock, CheckCircle2, Ban, Download, Share2,
 } from 'lucide-react';
 
-const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
+const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'OKB';
 
 const LINK_COLORS: Record<string, string> = {
   Active:    'var(--primary)',
@@ -114,7 +114,7 @@ function LinkCard({ link, onCancel, onQR }: {
   };
 
   const handleDownload = () => {
-    const EXPLORER = 'https://coston2-explorer.flare.network';
+    const EXPLORER = 'https://web3.okx.com/explorer/x-layer-testnet';
     generateInvoicePDF({
       invoiceId:        link.linkId,
       description:      link.description,
@@ -308,7 +308,7 @@ function LinksContent() {
   return (
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>FlarePay</p>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>ProtectedPay</p>
         <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-1px' }}>Payment Links</h1>
         <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginTop: 4 }}>Create shareable payment links with QR codes</p>
       </div>

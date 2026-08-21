@@ -5,8 +5,8 @@ import Navbar from './components/Navbar';
 import SmoothScroll from './components/SmoothScroll';
 
 export const metadata: Metadata = {
-  title: 'FlarePay — Trustless Payments on Flare',
-  description: 'Protected transfers, group splits, and batch payments secured by EVM smart contracts on the Flare Testnet Coston2.',
+  title: 'ProtectedPay — Trustless Payments on X Layer',
+  description: 'Protected transfers, group splits, and batch payments secured by EVM smart contracts on the X Layer Testnet.',
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',

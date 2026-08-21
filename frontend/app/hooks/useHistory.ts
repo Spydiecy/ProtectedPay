@@ -70,7 +70,7 @@ export const LINK_STATUS_LABEL: Record<number, string> = {
 
 // ── Format helpers ─────────────────────────────────────────────────────────────
 export function formatPOT(raw: string): string {
-  const symbol = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
+  const symbol = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'OKB';
   if (!raw || raw === '0') return `0 ${symbol}`;
   try {
     const wei = BigInt(raw.replace(/,/g, ''));

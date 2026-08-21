@@ -1,10 +1,10 @@
 /**
- * Preset ERC-20 tokens available on the Flare Testnet Coston2.
+ * Preset ERC-20 tokens available on the X Layer Testnet.
  *
  * Single source of truth for known token metadata (symbol, decimals, logo) so
  * every page — Protected Transfer, History, Dashboard — renders the same
- * logo and decimals for FXRP / USDT0 instead of falling back to a generic
- * coin icon or assuming 18 decimals.
+ * logo and decimals for USDT / USDC / USDG instead of falling back to a
+ * generic coin icon or assuming 18 decimals.
  */
 
 export interface PresetToken {
@@ -17,8 +17,9 @@ export interface PresetToken {
 }
 
 export const PRESET_TOKENS: PresetToken[] = [
-  { symbol: 'FXRP',  label: 'FXRP',  name: 'FXRP',  address: '0x0b6A3645c240605887a5532109323A3E12273dc7', decimals: 6, logo: '/token/fxrp.png'  },
-  { symbol: 'USDT0', label: 'USDT0', name: 'USDT0', address: '0xC1A5B41512496B80903D1f32d6dEa3a73212E71F', decimals: 6, logo: '/token/usdt0.png' },
+  { symbol: 'USDT', label: 'USDT', name: 'Tether USD',   address: '0x9E29b3AAdA05BF2D2c827aF80bd28dc0b9B4Fb0c', decimals: 6, logo: '/token/usdt.png' },
+  { symbol: 'USDC', label: 'USDC', name: 'USD Coin',      address: '0xCB8bF24c6cE16aD21d707C9505421A17F2Bec79D', decimals: 6, logo: '/token/usdc.png' },
+  { symbol: 'USDG', label: 'USDG', name: 'Global Dollar', address: '0xA78E2bAABAf5c4F36B7fC394725DEb68d332Eec1', decimals: 6, logo: '/token/usdg.png' },
 ];
 
 /** Lookup a preset token by its contract address (case-insensitive). */

@@ -14,7 +14,7 @@ import { Zap, Plus, Trash2, RefreshCw, AtSign, ChevronDown, ChevronUp, Users } f
 interface Row { address: string; amount: string; resolvedFrom?: string; }
 interface BatchRecipientItem { account: string; amount: bigint; }
 
-const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
+const NATIVE = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'OKB';
 
 // ── Batch card with expandable recipients ─────────────────────────────────────
 function BatchCard({ b, client, contractAddress }: { b: BatchRecord; client: ReturnType<typeof usePublicClient>; contractAddress: `0x${string}` }) {
@@ -218,7 +218,7 @@ function BatchContent() {
   return (
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>FlarePay</p>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: 6 }}>ProtectedPay</p>
         <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-1px' }}>Batch Payment</h1>
         <p style={{ fontSize: 14, color: 'var(--foreground-muted)', marginTop: 4 }}>Send to multiple recipients in one atomic transaction</p>
       </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { useAccount, useDisconnect, useBalance } from 'wagmi';
-import { formatNative, shortAddress, flareTestnet, FAUCET_URL } from '../../lib/wagmi';
+import { formatNative, shortAddress, xLayerTestnet, FAUCET_URL } from '../../lib/wagmi';
 import {
   Lock, Users, Zap, History, ChevronLeft, ChevronRight,
   Copy, Check, Home, Sun, Moon, LogOut, Link2, Droplet, ExternalLink,
@@ -47,7 +47,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const nativeSymbol = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'C2FLR';
+  const nativeSymbol = process.env.NEXT_PUBLIC_NATIVE_SYMBOL || 'OKB';
 
   const navBtn = (tab: AppTab, Icon: React.ElementType, label: string) => {
     const active = activeTab === tab;
@@ -69,21 +69,21 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       {/* Logo */}
       <div style={{ padding: collapsed ? '18px 0' : '18px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, overflow: 'hidden' }}>
-          <img src="/logo.png" alt="FlarePay" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-          {!collapsed && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>Flare<span style={{ color: 'var(--primary)' }}>Pay</span></span>}
+          <img src="/logo.png" alt="ProtectedPay" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+          {!collapsed && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>Protected<span style={{ color: 'var(--primary)' }}>Pay</span></span>}
         </div>
         <button onClick={() => setCollapsed(!collapsed)} style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0, background: 'var(--surface-elevated)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--foreground-muted)' }}>
           {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
         </button>
       </div>
 
-      {/* Network badge (single-chain: Flare Testnet Coston2) */}
+      {/* Network badge (single-chain: X Layer Testnet) */}
       <div style={{ padding: collapsed ? '10px 0' : '10px 12px', borderBottom: '1px solid var(--border)' }}>
         {collapsed ? (
-          <div title={flareTestnet.name} style={{ display: 'flex', justifyContent: 'center' }}>
+          <div title={xLayerTestnet.name} style={{ display: 'flex', justifyContent: 'center' }}>
             <img
-              src="/chain/flare.png"
-              alt="Flare"
+              src="/chain/xlayer.png"
+              alt="X Layer"
               style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '2px auto' }}
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
             />
@@ -95,13 +95,13 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             background: 'rgba(45,212,191,0.1)',
           }}>
             <img
-              src="/chain/flare.png"
-              alt="Flare"
+              src="/chain/xlayer.png"
+              alt="X Layer"
               style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
             />
             <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'var(--primary)', textAlign: 'left' }}>
-              {flareTestnet.name}
+              {xLayerTestnet.name}
             </span>
           </div>
         )}
@@ -136,6 +136,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                 </div>
               )}
               <a href={FAUCET_URL} target="_blank" rel="noopener noreferrer"
+                title="Get free testnet OKB from the official X Layer faucet"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '7px 10px', borderRadius: 8, background: 'var(--surface-elevated)', border: '1px solid var(--border)', color: 'var(--foreground-muted)', fontSize: 11, fontWeight: 600, textDecoration: 'none', transition: 'all 0.15s' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--primary)'; (e.currentTarget as HTMLAnchorElement).style.color = 'var(--primary)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLAnchorElement).style.color = 'var(--foreground-muted)'; }}
